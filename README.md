@@ -8,7 +8,7 @@ Aplicação web mobile (PWA) para descentralizar as movimentações do almoxarif
 - Alexandre Fabricio Guenther
 - Paulo Henrique Araujo da Silva e Silva
 
-**Instituição:** SENAI/SC — Blumenau
+**Instituição:** UniSENAI Blumenau
 **Repositório:** https://github.com/zIthalo/cristal-master
 
 ---

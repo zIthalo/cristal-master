@@ -96,7 +96,58 @@ flowchart LR
 
 ---
 
-## Modelagem de Dados — DER
+## Modelo de Dados Enxuto (MVP — Aula 03)
+
+Conforme orientação da disciplina, um MVP de 42h não precisa (e não deve) de um banco corporativo completo. O modelo abaixo tem apenas **3 tabelas** e é o que de fato sustenta a regra FIFO e alimenta o simulador de dados.
+
+```mermaid
+erDiagram
+  PRODUTOS ||--o{ LOTES : possui
+  LOTES ||--o{ MOVIMENTACOES : gera
+
+  PRODUTOS {
+    int id PK
+    string sku
+    string nome
+    string unidade_medida
+  }
+  LOTES {
+    int id PK
+    int produto_id FK
+    string numero_lote
+    string posicao
+    date data_fabricacao
+    date data_validade
+    decimal qtd_inicial
+    decimal qtd_atual
+    string status
+  }
+  MOVIMENTACOES {
+    int id PK
+    int lote_id FK
+    string tipo
+    decimal quantidade
+    string status
+    string observacao
+    datetime criado_em
+  }
+```
+
+**Por que só 3 tabelas:**
+- `produtos`: o catálogo de materiais (ex.: resinas).
+- `lotes`: cada lote físico, com `posicao` (endereço lógico no piso, ex. `F01`) e `data_fabricacao`, que juntos sustentam o FIFO — sem precisar de uma tabela separada de posições.
+- `movimentacoes`: todo evento de saída, inclusive os bloqueados (`bloqueado_fifo`, `bloqueado_vencido`, `bloqueado_quantidade`), o que já cobre auditoria básica sem precisar de uma tabela de log separada.
+
+Autenticação, perfis e ordens de produção — presentes no escopo do MVP — não entram neste modelo de dados específico porque este exercício (Aula 03) é focado nos dados industriais que o FIFO consome, não no sistema completo.
+
+Script DDL: [`database/schema_mvp.sql`](./database/schema_mvp.sql).
+Script gerador de mock: [`mock/simulator.js`](./mock/simulator.js) (ver `mock/README.md` para instruções de execução).
+
+---
+
+## Modelagem de Dados — Visão Estendida (não implementada no MVP)
+
+> Esta seção documenta uma modelagem mais completa (8 tabelas, com autenticação, RBAC e ordens de produção), explorada antes da orientação de manter o modelo enxuto. Mantida aqui como referência de arquitetura para uma eventual evolução pós-MVP, mas **não é o schema em uso** — o schema oficial é o da seção anterior.
 
 O modelo abaixo representa as entidades do MVP. O ponto central para o controle FIFO é a combinação `lotes.data_entrada` + `lotes.posicao_id`: a posição é o endereço lógico do pallet no piso (ex.: `F01`), e é ela que liga a regra lógica de "primeiro a entrar, primeiro a sair" à realidade física do almoxarifado.
 

@@ -72,39 +72,38 @@
 
 ---
 
-### Sprint / Semana 03 — Modelagem de dados (DER) e script de criação do schema MySQL
+### Sprint / Semana 03 (Aula 03) — Modelagem de dados, simplificação do schema e mock de dados industriais
 
 #### 1. Contexto e Objetivo da Tarefa
-* A partir do escopo do MVP e da stack já definidos, modelar as entidades do banco de dados, formalizar o Diagrama Entidade-Relacionamento (DER) e gerar o script DDL de criação do schema MySQL, incluindo a estrutura que sustenta a regra FIFO (lotes + posição física).
+* Modelar as entidades do banco de dados e o Diagrama Entidade-Relacionamento (DER), gerar o script DDL do schema MySQL e criar um script gerador de dados mock (operação normal + anomalias), conforme orientação da disciplina para a Aula 03: banco enxuto, de 3 a 5 tabelas no máximo.
 
 #### 2. Principais Prompts e Contexto Fornecido
-* **Prompt principal:** "Monte para mim um diagrama DER de banco de dados e me entregue o código para modelar."
-* **Contexto adicional:** Todo o histórico da conversa (prompt mestre, escopo do MVP já definido no README e análise de arquitetura da Semana 02), usado pela IA para manter coerência entre o que já havia sido decidido e o modelo de dados proposto.
+* **Prompt 1:** "Monte para mim um diagrama DER de banco de dados e me entregue o código para modelar." — sem a restrição de 3-5 tabelas ainda explícita no prompt.
+* **Prompt 2 (mesma aula, com o enunciado oficial da Aula 03):** pedido de modelagem enxuta (3-5 tabelas), com exemplo de referência (`produtos`, `lotes`, `movimentacoes`) e exigência de um script gerador de mock com casos normais (~90%) e anomalias (~10%).
+* **Contexto adicional:** Todo o histórico da conversa (prompt mestre, escopo do MVP, stack e DER anterior), usado pela IA para manter coerência com o que já havia sido decidido.
 
 #### 3. Avaliação da Resposta Gerada
 
 **O que a IA sugeriu de útil:**
-* Modelo com 8 entidades: `perfis`, `usuarios`, `refresh_tokens`, `materiais`, `posicoes`, `lotes`, `ordens_producao` e `movimentacoes`.
-* `perfis` como tabela própria (RBAC extensível), em vez de `ENUM` fixo em `usuarios`.
-* `posicoes` como entidade separada, ligando o endereço lógico do pallet no piso à data de entrada do lote — é essa combinação que sustenta o FIFO físico discutido na Semana 02, e não apenas uma checagem de data isolada.
-* Índice composto `idx_lotes_fifo (material_id, status, data_entrada)`, justificado como a consulta mais frequente do sistema (buscar o lote mais antigo disponível por material).
-* `movimentacoes` com `status` (`SUCESSO`, `BLOQUEADO_FIFO`, `EXCECAO_APROVADA`) e campos `aprovado_por` + `justificativa`, registrando até as tentativas bloqueadas — atende ao requisito de auditoria já previsto no MVP.
-* `refresh_tokens` isolado de `usuarios`, permitindo revogar sessões individualmente em dispositivos móveis compartilhados.
-* Diagrama DER renderizado em Mermaid (`erDiagram`), compatível com visualização direta no GitHub.
+* No primeiro prompt, um modelo mais completo com 8 entidades (`perfis`, `usuarios`, `refresh_tokens`, `materiais`, `posicoes`, `lotes`, `ordens_producao`, `movimentacoes`), incluindo RBAC extensível e auditoria de exceções — tecnicamente correto, mas acima do escopo pedido pela disciplina para esta entrega.
+* Ao receber o enunciado oficial da Aula 03, a IA simplificou corretamente para 3 tabelas (`produtos`, `lotes`, `movimentacoes`), incorporando o endereço lógico (`posicao`) como coluna de `lotes` em vez de tabela separada, mantendo a lógica FIFO sem inflar o modelo.
+* Índice composto `idx_lotes_fifo (produto_id, status, data_fabricacao)` para a consulta mais frequente do sistema.
+* Script `mock/simulator.js` em Node.js (consistente com a stack do backend), com os três tipos de anomalia pedidos: lote fora de ordem (`bloqueado_fifo`), lote vencido (`bloqueado_vencido`) e quantidade acima do saldo (`bloqueado_quantidade`), além de dois modos de execução (lote histórico e geração contínua).
 
-**O que a equipe descartou por ser complexo demais para 42 horas:** `[CONFIRMAR / ajustar com a equipe]`
-* `[Ex.: tabela de histórico de posições, versionamento de lotes, ou outra extensão que a equipe tenha avaliado e decidido não implementar]`
+**O que a equipe descartou por ser complexo demais para 42 horas:**
+* O modelo de 8 entidades da primeira resposta — autenticação, RBAC completo e ordens de produção foram mantidos como visão de arquitetura futura no README, mas não implementados nesta entrega.
+* Gravação direta em MySQL como padrão do mock: optou-se por arquivo (JSON/NDJSON) como saída principal, deixando o MySQL como flag opcional, para não depender de um banco já rodando durante a demonstração.
 
 **Falhas, alucinações ou pontos de atenção:**
-* A IA alertou que os `CHECK (quantidade > 0)` do script só são de fato aplicados pelo MySQL a partir da versão 8.0.16; em versões anteriores a sintaxe é aceita mas a constraint é ignorada silenciosamente. **Precisa ser validado contra a versão do MySQL do ambiente de entrega antes da apresentação.** `[CONFIRMAR]`
-* A relação `USUARIOS ||--o{ MOVIMENTACOES : aprova_excecao` é uma segunda relação entre as mesmas duas entidades (usuário que executa vs. usuário que aprova exceção); a equipe deve confirmar que essa distinção está clara para quem for avaliar o DER.
+* A IA alertou que os `CHECK` de quantidade só são de fato aplicados a partir do MySQL 8.0.16; em versões anteriores a constraint é aceita na sintaxe mas ignorada silenciosamente. **Precisa ser validado contra a versão do MySQL do ambiente de entrega.** `[CONFIRMAR]`
+* No script de mock, um caso de borda (lote com saldo muito baixo tentando gerar uma retirada "normal") foi tratado com um valor mínimo de segurança; a equipe deve rodar o script e observar os logs para confirmar que os números gerados fazem sentido antes da apresentação. `[CONFIRMAR]`
 
 #### 4. Intervenção Humana e Refatoração
 
 **Decisão final tomada pelos integrantes:** `[CONFIRMAR / ajustar com a equipe]`
-* Adotar o modelo de 8 entidades proposto como schema oficial do MVP.
-* Versionar o script em `database/schema.sql` no repositório.
-* Validar a versão do MySQL do ambiente antes de assumir que os `CHECK` constraints estão ativos.
+* Adotar o modelo enxuto de 3 tabelas (`produtos`, `lotes`, `movimentacoes`) como schema oficial da entrega da Aula 03, versionado em `database/schema_mvp.sql`.
+* Manter o modelo de 8 tabelas apenas como documentação de arquitetura estendida no README, sem implementá-lo agora.
+* Rodar `mock/simulator.js` no modo histórico antes da apresentação para validar visualmente as três anomalias geradas.
 
 ---
 

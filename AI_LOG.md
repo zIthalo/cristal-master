@@ -64,7 +64,7 @@
 
 #### 4. Intervenção Humana e Refatoração
 
-**Decisão final tomada pelos integrantes:** `[Ainda não foi necessária intervenção humana, pois ainda não foram desenvilvidos códigos. O Retorno que a IA nos trouxe, para o momento, foi essencial.]`
+**Decisão final tomada pelos integrantes:** `[Ainda não foi necessária intervenção humana, pois ainda não foram desenvolvidos códigos. O retorno que a IA nos trouxe, para o momento, foi essencial.]`
 * Desenvolver o MVP com as 10 funcionalidades do escopo mínimo (login, permissões, leitura de QR Code, consulta de materiais e lotes, validação FIFO, saída de material, histórico, dashboard simples e logs).
 * Adotar a stack: React + TypeScript + Vite (PWA), Node.js + Express + TypeScript, MySQL, JWT + Refresh Token + bcrypt, Jest + Supertest, Git/GitHub.
 * Simular a integração com o ERP por uma API própria e deixar a integração real, o modo offline e o RFID como melhorias futuras.
@@ -72,42 +72,39 @@
 
 ---
 
-### Sprint / Semana 03 (Sprint 2) — Modelagem de dados e mock industrial
+### Sprint / Semana 03 — Modelagem de dados (DER) e script de criação do schema MySQL
 
 #### 1. Contexto e Objetivo da Tarefa
-* Definir o esquema enxuto do banco (3 a 5 tabelas) para o módulo FIFO/Almoxarifado e criar um gerador de dados mock (script independente) para alimentar a aplicação com dados realistas antes do backend estar pronto.
+* A partir do escopo do MVP e da stack já definidos, modelar as entidades do banco de dados, formalizar o Diagrama Entidade-Relacionamento (DER) e gerar o script DDL de criação do schema MySQL, incluindo a estrutura que sustenta a regra FIFO (lotes + posição física).
 
 #### 2. Principais Prompts e Contexto Fornecido
-* **Prompt principal:** Com base no README.md e no AI_LOG.md já publicados no repositório (escopo do MVP e stack técnica), foi pedido para desenhar a modelagem enxuta de dados (DDL) e criar, em uma pasta `/mock`, um script gerador de dados industriais que simulasse operação normal (~90%) e anomalias (~10%), incluindo explicitamente os casos "máquina/lote fora de ordem no FIFO" e "lote vencido tentando passar no FIFO".
-* **Contexto adicional:** Links do README.md e do AI_LOG.md já commitados no GitHub.
+* **Prompt principal:** "Monte para mim um diagrama DER de banco de dados e me entregue o código para modelar."
+* **Contexto adicional:** Todo o histórico da conversa (prompt mestre, escopo do MVP já definido no README e análise de arquitetura da Semana 02), usado pela IA para manter coerência entre o que já havia sido decidido e o modelo de dados proposto.
 
 #### 3. Avaliação da Resposta Gerada
 
 **O que a IA sugeriu de útil:**
-* Schema com 4 tabelas (`usuarios`, `produtos`, `lotes`, `movimentacoes`), justificando a inclusão de `usuarios` além do exemplo-base do exercício (produtos/lotes/movimentacoes) porque o MVP já tem login e log de auditoria no escopo.
-* Índice `(produto_id, status, data_fabricacao)` em `lotes`, pensado especificamente para a query que resolve a regra FIFO ("qual o lote mais antigo disponível?").
-* Posição do lote (`posicao`) como coluna simples em `lotes`, em vez de tabela própria — coerente com a decisão já tomada no README de não modelar o layout físico do piso.
-* Script `/mock/simulator.js` em Node puro (sem dependências), cobrindo os 4 cenários de anomalia: lote fora de ordem, lote vencido, saldo insuficiente e lote não encontrado, além de eventos de entrada (reposição) para sustentar grandes volumes sem esgotar o estoque simulado.
-* Geração de `dataset.json` (consumo rápido no frontend) e `seed.sql` (para popular o MySQL real) a partir da mesma base de dados em memória.
+* Modelo com 8 entidades: `perfis`, `usuarios`, `refresh_tokens`, `materiais`, `posicoes`, `lotes`, `ordens_producao` e `movimentacoes`.
+* `perfis` como tabela própria (RBAC extensível), em vez de `ENUM` fixo em `usuarios`.
+* `posicoes` como entidade separada, ligando o endereço lógico do pallet no piso à data de entrada do lote — é essa combinação que sustenta o FIFO físico discutido na Semana 02, e não apenas uma checagem de data isolada.
+* Índice composto `idx_lotes_fifo (material_id, status, data_entrada)`, justificado como a consulta mais frequente do sistema (buscar o lote mais antigo disponível por material).
+* `movimentacoes` com `status` (`SUCESSO`, `BLOQUEADO_FIFO`, `EXCECAO_APROVADA`) e campos `aprovado_por` + `justificativa`, registrando até as tentativas bloqueadas — atende ao requisito de auditoria já previsto no MVP.
+* `refresh_tokens` isolado de `usuarios`, permitindo revogar sessões individualmente em dispositivos móveis compartilhados.
+* Diagrama DER renderizado em Mermaid (`erDiagram`), compatível com visualização direta no GitHub.
 
 **O que a equipe descartou por ser complexo demais para 42 horas:** `[CONFIRMAR / ajustar com a equipe]`
-* Inserção direta no MySQL via `mysql2` a partir do script (ficou só gerando `.sql` para rodar manualmente).
-* Persistir o mock em SQLite paralelo ao MySQL definitivo.
-* Modelar fisicamente a fileira/bloco do piso como entidade própria (mantido como decisão já tomada na Semana 02).
+* `[Ex.: tabela de histórico de posições, versionamento de lotes, ou outra extensão que a equipe tenha avaliado e decidido não implementar]`
 
 **Falhas, alucinações ou pontos de atenção:**
-* Na primeira versão do script, o gerador "perdia" eventos silenciosamente quando o estoque de um produto esgotava antes de atingir a quantidade pedida — rodar `--count=2000` gerava só 348 registros, sem avisar. Foi necessário revisar a lógica e adicionar eventos de `entrada` (reposição) para o gerador sustentar grandes volumes.
-* Na mesma versão inicial, o cenário mais importante do negócio — **consumo fora de ordem (FIFO quebrado)** — quase não ocorria (8 em 5.000 eventos), porque o estoque raramente tinha dois lotes do mesmo produto disponíveis ao mesmo tempo. Foi necessário ajustar a regra de reposição para manter lote antigo e lote novo coexistindo com mais frequência, o que elevou a ocorrência desse cenário para um nível representativo (139 em 5.000). Esse foi o erro mais relevante encontrado: um mock "sem anomalia" teria passado despercebido se os números não tivessem sido checados.
-* O caso "lote vencido" dependia só de sorteio aleatório (~18% por lote) e, em alguns testes, não aparecia nenhuma vez no dataset. Foi adicionada uma garantia explícita no script para sempre existir pelo menos um lote vencido, independentemente do sorteio.
-* O DDL e os `INSERT`s gerados foram validados com um parser de sintaxe MySQL antes da entrega (não havia servidor MySQL disponível no ambiente de teste da IA para uma validação end-to-end real).
+* A IA alertou que os `CHECK (quantidade > 0)` do script só são de fato aplicados pelo MySQL a partir da versão 8.0.16; em versões anteriores a sintaxe é aceita mas a constraint é ignorada silenciosamente. **Precisa ser validado contra a versão do MySQL do ambiente de entrega antes da apresentação.** `[CONFIRMAR]`
+* A relação `USUARIOS ||--o{ MOVIMENTACOES : aprova_excecao` é uma segunda relação entre as mesmas duas entidades (usuário que executa vs. usuário que aprova exceção); a equipe deve confirmar que essa distinção está clara para quem for avaliar o DER.
 
 #### 4. Intervenção Humana e Refatoração
 
-**Decisão final tomada pelos integrantes:** `[CONFIRMAR / ajustar]`
-* Adotar o schema de 4 tabelas (`usuarios`, `produtos`, `lotes`, `movimentacoes`) em `/database/schema.sql`.
-* Adotar o gerador `/mock/simulator.js`, rodado com um volume de ~3.000 movimentações para a entrega da Aula 03.
-* Manter `motivo_bloqueio` como `VARCHAR` livre (não `ENUM` travado no banco), para não exigir migração de schema a cada novo tipo de anomalia identificado futuramente.
-* Versionar `/database/schema.sql`, `/mock/simulator.js` e `/mock/README.md`; deixar `/mock/output/*` fora do Git (dados gerados, não código-fonte).
+**Decisão final tomada pelos integrantes:** `[CONFIRMAR / ajustar com a equipe]`
+* Adotar o modelo de 8 entidades proposto como schema oficial do MVP.
+* Versionar o script em `database/schema.sql` no repositório.
+* Validar a versão do MySQL do ambiente antes de assumir que os `CHECK` constraints estão ativos.
 
 ---
 

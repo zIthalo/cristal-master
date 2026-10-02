@@ -96,6 +96,99 @@ flowchart LR
 
 ---
 
+## Modelagem de Dados — DER
+
+O modelo abaixo representa as entidades do MVP. O ponto central para o controle FIFO é a combinação `lotes.data_entrada` + `lotes.posicao_id`: a posição é o endereço lógico do pallet no piso (ex.: `F01`), e é ela que liga a regra lógica de "primeiro a entrar, primeiro a sair" à realidade física do almoxarifado.
+
+```mermaid
+erDiagram
+  PERFIS ||--o{ USUARIOS : possui
+  MATERIAIS ||--o{ LOTES : possui
+  POSICOES ||--o{ LOTES : armazena
+  LOTES ||--o{ MOVIMENTACOES : movimenta
+  USUARIOS ||--o{ MOVIMENTACOES : realiza
+  USUARIOS ||--o{ MOVIMENTACOES : aprova_excecao
+  ORDENS_PRODUCAO ||--o{ MOVIMENTACOES : referencia
+  USUARIOS ||--o{ REFRESH_TOKENS : possui
+
+  PERFIS {
+    int id PK
+    string nome
+  }
+  USUARIOS {
+    int id PK
+    string nome
+    string email
+    string senha_hash
+    int perfil_id FK
+    boolean ativo
+    datetime created_at
+  }
+  MATERIAIS {
+    int id PK
+    string codigo
+    string descricao
+    string unidade_medida
+    boolean ativo
+  }
+  POSICOES {
+    int id PK
+    string codigo
+    string descricao
+    boolean ativo
+  }
+  LOTES {
+    int id PK
+    int material_id FK
+    int posicao_id FK
+    string numero_lote
+    decimal quantidade
+    datetime data_entrada
+    date data_validade
+    string status
+  }
+  ORDENS_PRODUCAO {
+    int id PK
+    string numero_op
+    string descricao
+    string status
+    datetime created_at
+  }
+  MOVIMENTACOES {
+    int id PK
+    int lote_id FK
+    int usuario_id FK
+    int op_id FK
+    int aprovado_por FK
+    string tipo
+    decimal quantidade
+    string status
+    string justificativa
+    datetime created_at
+  }
+  REFRESH_TOKENS {
+    int id PK
+    int usuario_id FK
+    string token_hash
+    datetime expires_at
+    boolean revoked
+    datetime created_at
+  }
+```
+
+**Decisões de modelagem:**
+
+- `perfis` é uma tabela própria (não um `ENUM` em `usuarios`), permitindo adicionar perfis futuros sem alterar a estrutura da tabela de usuários.
+- `posicoes` existe como entidade separada porque é ela que viabiliza o FIFO físico: cada posição armazena um único lote por vez, sinalizada por fita/pintura no piso, sem custo de infraestrutura.
+- `movimentacoes` registra toda tentativa de saída, inclusive bloqueios por violação FIFO (`status = BLOQUEADO_FIFO`) e exceções aprovadas por um Supervisor (`EXCECAO_APROVADA` + `aprovado_por` + `justificativa`), garantindo rastreabilidade.
+- `refresh_tokens` é isolado de `usuarios` para permitir revogar sessões individualmente — relevante em dispositivos móveis compartilhados no chão de fábrica.
+
+O script DDL completo (MySQL 8.0+), com constraints, índices e comentários, está em [`database/schema.sql`](./database/schema.sql).
+
+> **Atenção:** os `CHECK` de quantidade no script dependem do MySQL 8.0.16+ para serem de fato aplicados pelo banco; confirmar a versão do ambiente de entrega.
+
+---
+
 ## Como executar
 
 > Será preenchido conforme o projeto evoluir (instalação, variáveis de ambiente, scripts de banco e testes).

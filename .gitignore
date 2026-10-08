@@ -1,0 +1,35 @@
+# Dependências
+node_modules/
+venv/
+.venv/
+__pycache__/
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Segredos: só o .env.example vai para o Git
+.env
+.env.*
+!.env.example
+
+# Dados gerados pelo simulador (regenerar com: node mock/simulator.js)
+mock/output/
+
+# Executáveis e binários
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.msi
+*.app
+
+# Logs, sistema operacional e editores
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

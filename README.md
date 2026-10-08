@@ -234,15 +234,82 @@ erDiagram
 - `movimentacoes` registra toda tentativa de saída, inclusive bloqueios por violação FIFO (`status = BLOQUEADO_FIFO`) e exceções aprovadas por um Supervisor (`EXCECAO_APROVADA` + `aprovado_por` + `justificativa`), garantindo rastreabilidade.
 - `refresh_tokens` é isolado de `usuarios` para permitir revogar sessões individualmente — relevante em dispositivos móveis compartilhados no chão de fábrica.
 
-O script DDL completo (MySQL 8.0+), com constraints, índices e comentários, está em [`database/schema.sql`](./database/schema.sql).
+O script DDL completo (MySQL 8.0+), com constraints, índices e comentários, está em [`database/schema_estendido.sql`](./database/schema_estendido.sql) (referência; não é executado pela aplicação).
 
 > **Atenção:** os `CHECK` de quantidade no script dependem do MySQL 8.0.16+ para serem de fato aplicados pelo banco; confirmar a versão do ambiente de entrega.
 
 ---
 
-## Como executar
+## Estrutura do Repositório
 
-> Será preenchido conforme o projeto evoluir (instalação, variáveis de ambiente, scripts de banco e testes).
+```
+cristal-master/
+├── backend/                  # API Node.js + Express + TypeScript
+│   ├── src/
+│   │   ├── config/           # variáveis de ambiente (.env) e pool de conexão
+│   │   ├── database/         # DDL automático (schema/init) e seed
+│   │   ├── models/           # acesso a dados (queries SQL parametrizadas)
+│   │   ├── controllers/      # validação da requisição e resposta HTTP
+│   │   ├── routes/           # mapeamento URL -> controller
+│   │   ├── middlewares/      # 404 e tratamento centralizado de erros
+│   │   ├── app.ts            # configuração do Express (importável pelo Supertest)
+│   │   └── server.ts         # inicialização: cria tabelas e sobe o servidor
+│   └── .env.example          # modelo das variáveis de ambiente
+├── database/                 # DDL de referência (schema_mvp.sql = modelo oficial)
+├── mock/                     # simulador de dados industriais
+├── AI_LOG.md
+└── README.md
+```
+
+## Como Executar
+
+**Requisitos:** Node.js 20+ e MySQL 8.0.16+ (ou MariaDB 10.2+) em execução, com um usuário que possa criar bancos.
+
+> A API foi validada em MariaDB 10.11. Antes da apresentação, confirmar também em MySQL 8.
+
+```bash
+# 1. Gerar os dados simulados (a partir da raiz do repositório)
+node mock/simulator.js --mode=historico --quantidade=2000
+
+# 2. Configurar e subir a API
+cd backend
+cp .env.example .env      # edite DATABASE_URL com usuário e senha do seu MySQL
+npm install
+npm run dev               # cria o banco e as tabelas automaticamente, se não existirem
+
+# 3. Em outro terminal (dentro de backend/), carregar os dados simulados no banco
+npm run seed              # APAGA e recarrega produtos, lotes e movimentações
+```
+
+Se a senha do banco tiver caracteres especiais, codifique-os na `DATABASE_URL` (`@` vira `%40`, `#` vira `%23`).
+
+Outros comandos: `npm run build` (compila para `dist/`) e `npm start` (executa o build).
+
+### Endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/health` | Testa o banco a cada chamada. `200 {"status":"ok","database":"connected",...}` ou `503 {"status":"error","database":"unavailable"}` |
+| `GET` | `/api/lotes` | Lista lotes em ordem FIFO (mais antigo primeiro). Filtros opcionais: `produto_id` (inteiro positivo) e `status` (`disponivel`, `consumido`, `vencido`). Parâmetro inválido retorna `400`. |
+
+Exemplo: `GET /api/lotes?produto_id=1&status=disponivel`
+
+```json
+{
+  "total": 6,
+  "data": [
+    {
+      "id": 130, "produto_id": 1, "sku": "RES-PP-001", "produto_nome": "Resina Polipropileno PP-H",
+      "numero_lote": "L01027", "posicao": "F39", "data_fabricacao": "2026-10-03",
+      "data_validade": "2027-03-22", "qtd_inicial": 930, "qtd_atual": 502.8, "status": "disponivel"
+    }
+  ]
+}
+```
+
+> (Exemplo abreviado: só o primeiro de 6 lotes; os valores variam a cada geração do mock.)
+>
+> Lotes com `data_validade` vencida podem continuar com `status = disponivel` no banco (é o que o simulador gera de propósito): quem deve bloquear a saída é a regra de negócio FIFO, que será a próxima etapa.
 
 ## Estrutura de Documentação
 

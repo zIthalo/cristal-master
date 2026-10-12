@@ -1,0 +1,7 @@
+[
+  { "codigo": "LT-2026-0001", "produto": "Resina PET Cristal",        "quantidadeKg": 1000.0, "dataEntrada": "2026-07-05", "validade": "2027-07-05", "fileira": "F01" },
+  { "codigo": "LT-2026-0002", "produto": "Resina PET Cristal",        "quantidadeKg": 1000.0, "dataEntrada": "2026-08-12", "validade": "2027-08-12", "fileira": "F02" },
+  { "codigo": "LT-2026-0003", "produto": "Aditivo Antioxidante AX-20", "quantidadeKg": 250.0,  "dataEntrada": "2026-06-20", "validade": "2026-09-30", "fileira": "F03" },
+  { "codigo": "LT-2026-0004", "produto": "Resina Polietileno PEAD",   "quantidadeKg": 950.5,  "dataEntrada": "2026-09-18", "validade": "2027-09-18", "fileira": "F04" },
+  { "codigo": "LT-2026-0005", "produto": "Aditivo Estabilizante UV-5", "quantidadeKg": 400.0,  "dataEntrada": "2026-10-01", "validade": "2027-04-01", "fileira": "F05" }
+]

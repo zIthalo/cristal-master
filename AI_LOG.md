@@ -302,3 +302,32 @@ Registro honesto: **a IA não executou o projeto** (sem Maven/MySQL no ambiente 
 - Entrega: `cristalmaster-atualizacao-banco-automatico.zip` (`README.md` e `src/main/resources/application.properties`). O teste com H2 fica para uma próxima etapa a pedido do usuário.
 
 ---
+
+## Prompt 13 (21/10/2026)
+
+**Prompt enviado:**
+
+> crie uma apresentação simples para este projeto.
+
+**Ações realizadas:**
+
+- Criada uma apresentação de 7 slides (artefato de slides, 16:9, com opção de baixar em PowerPoint ou PDF): capa, problema do almoxarifado, solução proposta, o que já funciona hoje, como funciona (camadas), regra FIFO em ação e próximos passos.
+- O conteúdo segue o estado real do código: deixa claro que a regra FIFO ainda é manual e não está ligada à API nem ao banco.
+- A apresentação não foi revisada visualmente pela IA (sem renderização no ambiente); o usuário deve percorrer os slides antes de apresentar.
+- Não há arquivos novos no projeto; o `.zip` não se aplica a este pedido.
+
+---
+
+## Prompt 14 (21/10/2026)
+
+**Prompt enviado:**
+
+> No arquivo ControleDemo.java não consegui provocar o caso erro.
+
+**Diagnóstico:** o `ControleDemo` lê os códigos com `sc.nextLine()`, que devolve texto vazio (`""`) quando o usuário só aperta Enter, nunca `null`. O `FifoService` só tratava `null` como erro, então a entrada vazia caía em `FIFO VIOLADO` (ou `FIFO OK` se os dois fossem vazios). O caso de erro só era alcançável pelo `FifoTeste`, que passa `null` direto no código.
+
+**Correção:** `FifoService.validarSaida` passou a tratar também código vazio ou só com espaços (`isBlank()`) como `Erro: lote inválido`. Executado no ambiente da IA antes e depois: vazio → `FIFO VIOLADO` (antes) e `Erro: lote inválido` (depois); `null`, `LOT001 x LOT001` e `LOT001 x LOT005` mantiveram o resultado. README atualizado (tabela de cenários e como provocar o erro).
+
+**Entrega:** `cristalmaster-correcao-caso-erro.zip` (`FifoService.java` e `README.md`).
+
+---

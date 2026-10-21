@@ -1,6 +1,6 @@
 # Cristal Master: Controle de Estoque do Almoxarifado
 
-Sistema de controle de estoque FIFO para o almoxarifado da Cristal Master, indústria que trabalha com resinas e aditivos. A visão final é um **PWA mobile**: o operador abre o app direto no celular, sem instalar nada de loja, e usa a câmera para ler os QR Codes dos lotes.
+Sistema de controle de estoque FIFO para o almoxarifado da Cristal Master, indústria que trabalha com resinas e aditivos. A visão final é um **PWA mobile** (Progressive Web App): o operador abre o app direto no celular, sem instalar nada de loja, e usa a câmera para ler os QR Codes dos lotes.
 
 > **Situação atual:** backend (API REST em Spring Boot + MySQL) com a base de dados modelada e uma **primeira versão da regra FIFO**. O PWA, a leitura de QR Code e a integração da regra FIFO com a API/banco ainda serão desenvolvidos. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
 

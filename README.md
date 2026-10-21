@@ -1,151 +1,174 @@
 # Cristal Master: Controle de Estoque do Almoxarifado
 
-PWA mobile para o almoxarifado da Cristal Master (resinas e aditivos). O operador abre o app direto no celular, sem instalar nada de loja, e usa a câmera para ler os QR Codes dos lotes.
+Sistema de controle de estoque FIFO para o almoxarifado da Cristal Master, indústria que trabalha com resinas e aditivos. A visão final é um **PWA mobile**: o operador abre o app direto no celular, sem instalar nada de loja, e usa a câmera para ler os QR Codes dos lotes.
 
-## Problema
+> **Situação atual:** backend (API REST em Spring Boot + MySQL) com a base de dados modelada e uma **primeira versão da regra FIFO**. O PWA, a leitura de QR Code e a integração da regra FIFO com a API/banco ainda serão desenvolvidos. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
+
+## Problema do almoxarifado
 
 1. **FIFO quebrado.** Pallets de resina (~1.000 kg) ficam em fileiras profundas no chão. Com pressa, o operador da empilhadeira pega o pallet mais fácil (o da frente, mais novo) e os antigos ficam no fundo até vencerem.
-2. **Saldo do sistema diferente do real.** As movimentações são anotadas em fichas de papel e digitadas no ERP só no fim do turno, o que gera os "furos de estoque".
+2. **Saldo do sistema diferente do real.** As movimentações são anotadas em fichas de papel e digitadas no ERP só no fim do turno, gerando os "furos de estoque".
 
-## Solução
+## Solução proposta (visão final)
 
 - O app indica **qual lote e qual posição do piso devem sair primeiro**, antes de o operador pegar o material.
 - O operador lê o **QR Code do lote**. Se for o lote errado (fora de ordem, vencido ou com quantidade acima do saldo), o sistema **bloqueia e registra a tentativa**.
 - Toda movimentação é **gravada na hora**, sem ficha de papel e sem digitação em lote.
-- Cada fileira do piso recebe um código (ex.: `F01`) e **um único lote por vez**, sinalizado com fita ou tinta no chão. Não há gasto com estrutura física (porta-pallets).
+- Cada fileira do piso recebe um código (ex.: `F01`) e **um único lote por vez**, sinalizado com fita ou tinta no chão, sem gasto com estrutura física (porta-pallets).
 
-## Stack
+## O que o programa faz hoje
 
-| Camada | Tecnologia |
-|--------|-----------|
-| Backend | Java 21, Spring Boot 4.1.1 (Web MVC, Spring Data JPA) |
-| Banco | MySQL 8 |
-| Build | Maven (wrapper incluso) |
-| Utilitários | Lombok |
-| Frontend | PWA mobile com leitura de QR Code pela câmera (a desenvolver) |
+Resumo direto do que existe e funciona neste momento:
+
+| Parte | O que faz | Problema que ataca |
+|-------|-----------|--------------------|
+| **Regra FIFO** (`FifoService`) | Compara o lote que o sistema esperava com o lote que o operador selecionou e responde `FIFO OK`, `FIFO VIOLADO` ou `Erro: lote inválido`. | **Detectar a saída fora de ordem**, que é o coração do problema 1 (FIFO quebrado). |
+| **Cadastro de produtos** (`/produtos`) | Grava e lista produtos (resinas e aditivos) no MySQL. | Base de dados para o controle de estoque. |
+| **Modelo de dados** (4 entidades) | O Hibernate cria no MySQL as tabelas `produtos`, `lotes`, `movimentacoes` e `perfis`. | Estrutura para gravar lotes e movimentações na hora (problema 2). |
+| **Demonstração em terminal** (`ControleDemo`, `FifoTeste`) | Executam a regra FIFO sem precisar de API nem banco. | Mostrar e validar a regra de forma simples. |
+| **Rotas de apoio** (`/health`, `/api/exemplo`) | Confirmam que o servidor está no ar. | Verificação rápida da aplicação. |
+
+Ou seja: **hoje o sistema já consegue dizer se um lote escolhido respeita a ordem FIFO**, mas essa verificação ainda é manual (os dois códigos são informados à mão) e **não está ligada à API nem ao banco**. As demais partes da solução (sugerir o lote correto, QR Code, bloqueio com registro, movimentações em tempo real) estão nos próximos passos.
+
+## Como funciona
+
+### Arquitetura em camadas
+
+```
+ Cliente (navegador / Postman / futuro PWA)
+          │  HTTP + JSON
+          ▼
+ controllers/   recebem as requisições (rotas)         ← ProdutoController, HealthController, ExemploController
+          │
+          ▼
+ repositories/  conversam com o banco (sem escrever SQL) ← ProdutoRepository (Spring Data JPA)
+          │
+          ▼
+ models/        entidades = tabelas do MySQL             ← Produto, Lote, Movimentacao, Perfil
+
+ services/      regras de negócio                        ← FifoService (ainda não chamado pelos controllers)
+```
+
+### Fluxo de uma requisição (exemplo: cadastrar um produto)
+
+1. O cliente envia `POST /produtos` com um JSON, por exemplo `{"sku":"RES-01","nome":"Resina Cristal"}`.
+2. O `ProdutoController` converte o JSON em um objeto `Produto`.
+3. Ele chama `repository.save(produto)`, e o Spring Data/Hibernate executa o `INSERT` na tabela `produtos`.
+4. O produto salvo (agora com `id`) volta como JSON na resposta.
+
+`GET /produtos` segue o mesmo caminho com um `SELECT` e devolve a lista.
+
+### Como a regra FIFO decide
+
+`FifoService.validarSaida(loteEsperado, loteSelecionado)`:
+
+| Entrada (esperado → selecionado) | Resultado |
+|----------------------------------|-----------|
+| `LOT001` → `LOT001` | `FIFO OK` |
+| `LOT001` → `LOT005` | `FIFO VIOLADO` |
+| `null` → `LOT001` | `Erro: lote inválido` |
+
+Na versão final, o "lote esperado" será calculado pelo sistema (o mais antigo com saldo e dentro da validade) e o "selecionado" virá do QR Code lido pelo operador.
+
+## Rotas da API
+
+| Método | Rota | Descrição | Acessa o banco? |
+|--------|------|-----------|-----------------|
+| GET | `/health` | Responde `Sistema OK` se o servidor estiver no ar | Não (texto fixo) |
+| GET | `/api/exemplo` | Responde `API CristalMaster funcionando!` | Não (texto fixo) |
+| GET | `/produtos` | Lista os produtos cadastrados | Sim |
+| POST | `/produtos` | Cadastra um produto a partir de JSON | Sim |
+
+## Banco de dados
+
+O banco `cristalmaster` (MySQL) é **criado automaticamente** na primeira execução (parâmetro `createDatabaseIfNotExist=true` na URL de conexão), e as **tabelas** são criadas pelo Hibernate (`ddl-auto=update`). Não é preciso rodar `CREATE DATABASE` nem usar o MySQL Workbench; só é necessário que o servidor MySQL esteja ligado e que o usuário tenha permissão para criar bancos.
+
+| Tabela | Entidade | Campos |
+|--------|----------|--------|
+| `produtos` | `Produto` | id, sku, nome |
+| `lotes` | `Lote` | id, codigoQr, fileira, qtdInicial, qtdAtual |
+| `movimentacoes` | `Movimentacao` | id, tipo, quantidade, dataHora |
+| `perfis` | `Perfil` | id, nome |
+
+As tabelas ainda **não têm relacionamentos** entre si (por exemplo, o lote não aponta para o produto).
 
 ## Estrutura do projeto
 
 ```
-cristalmaster/
-├── pom.xml
-├── mvnw / mvnw.cmd              # Maven Wrapper
-├── .mvn/wrapper/maven-wrapper.properties
-├── dados-mock.json              # lotes de exemplo (cópia em src/main/resources/)
-├── AI_LOG.md                    # registro dos prompts enviados à IA
-├── docs/
-│   ├── banco.sql                # criação do banco e do usuário
-│   └── GUIA_TESTE_MANUAL.md     # roteiro de teste/apresentação
-└── src/
-    ├── main/
-    │   ├── java/br/com/cristalmaster/
-    │   │   ├── CristalmasterApplication.java
-    │   │   ├── controller/   (HealthController, LoteController)
-    │   │   ├── model/        (Lote)
-    │   │   ├── repository/   (LoteRepository)
-    │   │   └── config/       (MockDataLoader)
-    │   └── resources/
-    │       ├── application.properties
-    │       └── dados-mock.json
-    └── test/java/br/com/cristalmaster/CristalmasterApplicationTests.java
+cristal-master-main/
+├── pom.xml, mvnw, mvnw.cmd          # Maven e wrapper
+├── docs/AI_LOG.md                   # registro do uso de IA
+├── mock/dados-mock.json             # dados simulados (7 lotes: normais, FIFO violado, vencido)
+├── src/
+│   ├── main/java/br/com/cristalmaster/
+│   │   ├── CristalmasterApplication.java   # ponto de entrada (sobe a API)
+│   │   ├── ControleDemo.java               # menu de demonstração no terminal
+│   │   ├── controllers/                    # rotas REST
+│   │   ├── models/                         # entidades JPA (tabelas)
+│   │   ├── repositories/                   # acesso ao banco
+│   │   └── services/                       # regra FIFO e teste manual
+│   ├── main/resources/application.properties   # conexão com o MySQL
+│   └── test/java/.../CristalmasterApplicationTests.java
+└── backend/                         # resquício de um projeto Node.js (não faz parte da API Spring Boot)
 ```
 
 ## Como executar
 
-1. Ter **JDK 21** e **MySQL 8** (ou Docker).
-2. Criar o banco: `mysql -u root -p < docs/banco.sql`
-3. (Opcional) Definir variáveis de ambiente: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
-4. Subir: `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`)
-5. Verificar: `GET http://localhost:8080/health` deve responder `"banco": "UP"`.
-6. Na primeira execução, os 5 lotes de `dados-mock.json` são gravados na tabela `lote`.
+**Pré-requisitos:** JDK 21 e um servidor MySQL em execução na porta 3306. Com o **XAMPP**, abra o painel de controle e clique em **Start** no módulo **MySQL** (o Apache não é necessário).
 
-Passo a passo completo, incluindo o teste negativo para apresentação, em [`docs/GUIA_TESTE_MANUAL.md`](docs/GUIA_TESTE_MANUAL.md).
+1. Inicie o MySQL (no XAMPP: botão **Start** do módulo MySQL). O banco `cristalmaster` será criado sozinho na primeira execução.
+2. Confira usuário e senha em `src/main/resources/application.properties`. O arquivo está configurado para o banco da apresentação (usuário `root` com senha). O MySQL do XAMPP vem com o `root` **sem senha**; para testar nele, deixe `spring.datasource.password=` vazio.
+3. Suba a API:
+   - Windows: `mvnw.cmd spring-boot:run`
+   - Linux/macOS: `./mvnw spring-boot:run`
+4. Teste: abra `http://localhost:8080/health` no navegador.
+5. Cadastre e liste produtos (Postman ou `curl`):
+   ```
+   curl -X POST http://localhost:8080/produtos -H "Content-Type: application/json" -d "{\"sku\":\"RES-01\",\"nome\":\"Resina Cristal\"}"
+   curl http://localhost:8080/produtos
+   ```
 
-## Endpoints
+**Demonstração da regra FIFO (sem banco e sem API):**
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/health` (alias `/api/health`) | Testa ativamente o banco e retorna o status real (200 `UP` / 503 `DOWN`) |
-| GET | `/api/exemplo` | Lista os lotes em ordem FIFO (mais antigo primeiro) |
-| GET | `/api/exemplo/{codigo}` | Consulta um lote pelo código do QR Code |
-| POST | `/api/dados` | Grava um lote (400 se inválido; 409 se código duplicado ou fileira ocupada) |
+- Menu interativo: execute a classe `ControleDemo` pela IDE (botão Run) ou, após `mvnw.cmd compile`, `java -cp target/classes br.com.cristalmaster.ControleDemo`.
+- Três cenários automáticos: `java -cp target/classes br.com.cristalmaster.services.FifoTeste`.
 
-## Status e próximos passos
+O teste `CristalmasterApplicationTests` sobe o contexto completo e, por isso, exige o MySQL ligado.
 
-- [x] Projeto Spring Boot criado (Spring Initializr)
-- [x] Conexão com MySQL configurada
-- [x] Endpoint de health check (`/health`)
-- [x] Primeira rota de dados com mock (`/api/exemplo`, `/api/dados`)
-- [x] Sprint 1 consolidado no `AI_LOG.md`
-- [ ] Validar o Sprint 1 em execução real (compilar e testar as rotas)
-- [ ] Modelagem das demais entidades: Produto, Fileira/Posição, Movimentação, Tentativa Bloqueada
-- [ ] Regra FIFO/FEFO: sugerir lote e posição de saída
-- [ ] Validação da leitura de QR Code (ordem, validade, saldo) com bloqueio e registro
-- [ ] Registro de movimentações em tempo real (entrada, saída, ajuste)
-- [ ] Carga inicial a partir de `dados-mock.json`
-- [ ] Frontend PWA (manifest, service worker, leitura de QR pela câmera)
-Status do Projeto
-Sprint 1 - Fundação Técnica ✅
-Configuração do ambiente Spring Boot
-Integração com MySQL
-Estrutura de pastas organizada
-Criação das entidades do sistema
-Criação automática de tabelas via Hibernate
-Endpoint de health check
-Endpoint de exemplo da API
-Mock industrial para simulação de dados
-Sprint 2 - Regra de Negócio ✅
-Implementação da primeira versão da regra FIFO (First In, First Out), responsável por validar se o lote selecionado para saída corresponde ao lote esperado pelo sistema.
+Se a porta 8080 estiver ocupada (`8080 already in use`), há outra instância rodando: encerre-a antes de subir novamente.
 
-Estrutura do Banco
-As tabelas atualmente modeladas são:
+## Status do projeto
 
-produtos
-lotes
-movimentacoes
-perfis
-Regra FIFO Implementada
-A classe FifoService contém a primeira implementação da lógica de validação FIFO.
+**Sprint 1: Fundação técnica** ✅
+- Ambiente Spring Boot e integração com MySQL
+- Estrutura de pastas organizada
+- Entidades do sistema e criação automática das tabelas
+- Endpoints de health check e de exemplo
+- Mock industrial para simulação de dados
 
-Cenário Normal
-Entrada:
+**Sprint 2: Regra de negócio** ✅
+- Primeira versão da regra FIFO (`FifoService`) com cenários normal, anomalia e erro
+- Demonstração em terminal (`ControleDemo`, `FifoTeste`)
 
-Lote Esperado: LOT001
-Lote Selecionado: LOT001
-Resultado:
+## Limitações conhecidas
 
-FIFO OK
-Cenário de Anomalia
-Entrada:
+- O `/health` e o `/api/exemplo` devolvem texto fixo; o `/health` **não testa** a conexão com o banco.
+- A regra FIFO só compara dois códigos informados; não calcula o lote esperado, não verifica validade nem saldo e não registra tentativas bloqueadas. Também não está ligada a nenhuma rota.
+- O `Lote` não tem produto, data de entrada nem validade, dados necessários para o FIFO real e para o bloqueio de lote vencido.
+- O `dados-mock.json` não é lido pela aplicação e traz campos (`produto`, `situacao`) que a entidade `Lote` não possui. Além disso, algumas fileiras têm mais de um lote (F01 e F03), contrariando a regra de um lote por fileira.
+- Só existe repository de `Produto`; `Lote`, `Movimentacao` e `Perfil` ainda não têm.
+- O `ControleDemo` falha se for digitado texto no lugar de um número no menu.
 
-Lote Esperado: LOT001
-Lote Selecionado: LOT005
-Resultado:
+## Próximos passos
 
-FIFO VIOLADO
-Cenário de Erro
-Entrada:
+1. Criar os repositories de `Lote`, `Movimentacao` e `Perfil`.
+2. Relacionar as entidades (lote → produto, movimentação → lote) e acrescentar data de entrada e validade ao `Lote`.
+3. Integrar a regra FIFO aos endpoints da API, calculando o lote esperado.
+4. Ler o mock industrial diretamente pela aplicação.
+5. Fazer o `/health` testar a conexão com o banco.
+6. Desenvolver a interface PWA.
+7. Implementar a leitura de QR Code pela câmera.
 
-Lote Esperado: null
-Lote Selecionado: LOT001
-Resultado:
+## Registro de uso de IA
 
-Erro: lote inválido
-Estrutura Atual do Projeto
-src/main/java/br/com/cristalmaster
-├── controllers
-├── models
-├── repositories
-├── routes
-├── services
-│   ├── FifoService.java
-│   └── FifoTeste.java
-├── config
-└── CristalmasterApplication.java
-Próximos Passos
-Implementar repositories das entidades.
-Integrar a regra FIFO aos endpoints da API.
-Ler os dados do mock industrial diretamente pela aplicação.
-Desenvolver a interface PWA.
-Implementar leitura de QR Code. ``
-
+Os prompts enviados à IA durante o desenvolvimento ficam registrados em [`docs/AI_LOG.md`](docs/AI_LOG.md).

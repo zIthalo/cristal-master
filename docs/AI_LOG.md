@@ -331,3 +331,48 @@ Registro honesto: **a IA não executou o projeto** (sem Maven/MySQL no ambiente 
 **Entrega:** `cristalmaster-correcao-caso-erro.zip` (`FifoService.java` e `README.md`).
 
 ---
+
+## Prompt 15 (21/10/2026)
+
+**Prompt enviado:**
+
+> em breve palavras como funcionam estes testes dentro do controledemo.java?
+
+**Resposta resumida:** o `ControleDemo` é um menu de terminal; a opção 1 lê dois códigos digitados e chama `FifoService.validarSaida`, que responde `FIFO OK`, `FIFO VIOLADO` ou `Erro: lote inválido`. Não são testes automáticos: o resultado é conferido manualmente. Nenhum arquivo alterado.
+
+---
+
+## Prompt 16 (21/10/2026)
+
+**Prompt enviado:**
+
+> CristalmasterApplication.java
+>
+> para que serve este arquivo?
+
+**Resposta resumida:** é a classe principal do projeto Spring Boot: o `main` chama `SpringApplication.run`, e a anotação `@SpringBootApplication` ativa a configuração automática, varre os pacotes abaixo de `br.com.cristalmaster`, conecta ao MySQL e sobe o servidor web na porta 8080. Nenhum arquivo alterado.
+
+---
+
+## Prompt 17 (22/10/2026)
+
+**Prompt enviado:**
+
+> *(texto da Aula 06 colado: por que a API industrial precisa de validação, conceito de payload, validação por esquemas, códigos HTTP 200/201/400/422/404/500, e requisitos do "Projeto 1 – Vibração")*
+>
+> Com base no programa que estamos desenvolvendo precisamos dar um próximo passo seguindo estes tópicos.
+
+**Observação sobre o enunciado:** o texto colado detalha apenas o Projeto 1 (Vibração); os requisitos do projeto de FIFO não vieram. A IA aplicou as regras gerais da aula e o exemplo de FIFO que o próprio texto traz (400 para baixa de lote novo antes do antigo; 422 para payload fora do esquema).
+
+**Ações realizadas:**
+
+- Validação por esquema com Bean Validation (`spring-boot-starter-validation`, adicionada ao `pom.xml`) nos DTOs `LoteRequest` e `SaidaRequest`.
+- `ApiExceptionHandler` (`@RestControllerAdvice`): 422 para payload inválido/JSON ilegível, 400 para regra de negócio, 404 para lote inexistente; dado malformado não gera 500.
+- Novas rotas: `GET/POST /api/lotes`, `GET /api/lotes/{codigoQr}` e `POST /api/saidas`.
+- `EstoqueService`: calcula o lote esperado (mais antigo do produto, com saldo e dentro da validade), reaproveita o `FifoService`, bloqueia lote vencido, quantidade acima do saldo e FIFO violado, registrando `TENTATIVA_BLOQUEADA` (com `noRollbackFor`), e baixa o saldo com movimentação `SAIDA` na hora.
+- Entidades: `Lote` ganhou `produto`, `dataEntrada` e `validade`; `Movimentacao` ganhou `codigoQr` e `motivo`.
+- `docs/TESTES_API.md` com roteiro em PowerShell cobrindo 200, 201, 400, 404 e 422; README atualizado.
+- **Verificação:** checagem de sintaxe com o `javac` do ambiente da IA (sem erros de sintaxe; erros de dependências ausentes são esperados). **Não compilado com Maven nem executado com MySQL**; o nome `spring-boot-starter-validation` e o comportamento no Spring Boot 4 precisam ser confirmados ao rodar.
+- Entrega: `cristalmaster-aula06-validacao-http.zip`.
+
+---

@@ -376,3 +376,35 @@ Registro honesto: **a IA não executou o projeto** (sem Maven/MySQL no ambiente 
 - Entrega: `cristalmaster-aula06-validacao-http.zip`.
 
 ---
+
+## Prompt 18 (22/10/2026)
+
+**Prompt enviado:**
+
+> Seguem os próximos passos que precisamos dar: *(orientações da Aula 07 coladas: construir a interface do utilizador; tecnologia visual à escolha; desenho para leitura a 2 metros com verde para normal e vermelho/amarelo para anomalias; consumir a API/mock; registrar no AI_LOG os prompts usados e os ajustes de estilo/usabilidade corrigidos manualmente; exemplos de prompts para Andon, mobile de armazém/PWA e gráficos; e a seção "O que cada um dos 5 Projetos precisa construir visualmente", da qual só o Projeto 1 (Vibração) veio no texto)*
+
+**Observação sobre o enunciado:** a descrição visual do projeto de FIFO não veio. A IA seguiu o exemplo recomendado para "Interface Mobile de Armazém / PWA" (campo do código em destaque, nome do produto, cartão verde "Lote Correto – Baixa Autorizada" e cartão vermelho "Violação de FIFO – Lote Esperado").
+
+**Prompt de geração efetivamente usado (resumo):** interface mobile responsiva para operador de armazém conferir lotes em modo FIFO, consumindo a API Spring Boot existente; campo de lote em destaque; quantidade; cartões de retorno verde/vermelho/amarelo; fonte grande e alto contraste; sem menus supérfluos; PWA simples.
+
+**Decisões de tecnologia e design:**
+
+- HTML + CSS + JavaScript puros, servidos pelo Spring Boot em `src/main/resources/static/` (sem bibliotecas e sem build; abre em `http://localhost:8080/`). PWA com `manifest.webmanifest` e `sw.js` (rede primeiro; `/api/` nunca é guardado em cache).
+- Verde, vermelho e amarelo reservados ao estado do lote; o resto da tela é neutro (azul-marinho e papel). A fileira aparece como a fita amarela do piso. Resultado em faixa de largura total, vermelho pulsando (respeita "reduzir movimento"). Fonte Bahnschrift (estilo sinalização industrial) com reservas do sistema.
+- Nova rota `GET /api/fifo/proximos` (lote que deve sair primeiro de cada produto), para a tela indicar o lote certo antes da retirada sem duplicar a regra no JavaScript.
+- Leitura de QR pela câmera com `BarcodeDetector` (Chrome/Android), exige HTTPS ou localhost.
+
+**Verificação feita pela IA:** sintaxe do JS e do manifest; checagem de sintaxe do Java; 17 verificações automáticas da tela com a API simulada (jsdom): estados 200, 400 FIFO, 400 vencido, 400 saldo, 404, 422, 500, sem rede, texto do servidor sem virar HTML e toque na lista preenchendo o código. **Não foi aberta em navegador real, não foi vista em celular e o backend não foi executado com Maven/MySQL.**
+
+**Ajustes de estilo/usabilidade corrigidos manualmente (a preencher pelo aluno após testar em navegador e celular):**
+
+- [ ] Tamanho das fontes e legibilidade a 2 metros
+- [ ] Contraste dos cartões verde/vermelho/amarelo no monitor/celular usados
+- [ ] Largura dos botões e campos no celular (toque com luva?)
+- [ ] Funcionamento da câmera (HTTPS/`localhost`) e do botão "Ler QR"
+- [ ] Textos das mensagens de bloqueio
+- [ ] Outros: ______
+
+**Entrega:** `cristalmaster-aula07-interface.zip` (12 arquivos: tela, rota nova, README, roteiro de testes e `docs/carregar-demo.ps1`).
+
+---

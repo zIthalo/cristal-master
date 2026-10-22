@@ -31,6 +31,7 @@ Esperado: `HTTP 201` nos três (o LOT103 já está vencido, para o teste 4).
 Chamar GET "$u/api/lotes"          # 200, lista em ordem FIFO: LOT103, LOT101, LOT102
 Chamar GET "$u/api/lotes/LOT101"   # 200
 Chamar GET "$u/api/lotes/LOT999"   # 404 (não existe)
+Chamar GET "$u/api/fifo/proximos"  # 200, o lote que deve sair primeiro de cada produto
 ```
 
 ## 3. Saída correta (200)

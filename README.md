@@ -2,7 +2,7 @@
 
 Sistema de controle de estoque FIFO para o almoxarifado da Cristal Master, indústria que trabalha com resinas e aditivos. A visão final é um **PWA mobile**: o operador abre o app direto no celular, sem instalar nada de loja, e usa a câmera para ler os QR Codes dos lotes.
 
-> **Situação atual:** backend (API REST em Spring Boot + MySQL) com cadastro de lotes, **saída de material validada pelo FIFO** (com bloqueio e registro de tentativas) e validação de payload com códigos HTTP corretos. O PWA e a leitura de QR Code pela câmera ainda serão desenvolvidos. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
+> **Situação atual:** backend (API REST em Spring Boot + MySQL) com cadastro de lotes, **saída de material validada pelo FIFO** (com bloqueio e registro de tentativas) e validação de payload com códigos HTTP corretos. A **tela operacional** (PWA em HTML/CSS/JS) já consome a API; a leitura de QR pela câmera está implementada, mas ainda precisa ser testada em um celular real. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
 
 ## Problema do almoxarifado
 
@@ -28,9 +28,10 @@ Resumo direto do que existe e funciona neste momento:
 | **Validação do payload** | Dados fora do esquema (campo vazio, negativo, texto no lugar de número, JSON quebrado) são barrados com **422** antes de chegar à regra de negócio. | API robusta contra dado malformado. |
 | **Cadastro e consulta de lotes** (`/api/lotes`) | Cadastra lotes (código QR, produto, fileira, quantidade, entrada, validade) e lista em ordem FIFO. | Base de dados do estoque. |
 | **Cadastro de produtos** (`/produtos`) | Grava e lista produtos no MySQL. | Base de dados. |
+| **Tela operacional (PWA)** (`/`) | Tela de celular: o operador informa o lote e a quantidade; cartão **verde** (baixa autorizada), **vermelho** (violação de FIFO ou lote vencido) ou **amarelo** (atenção). Mostra o próximo lote a sair de cada produto. | Indicar o lote certo antes da retirada e bloquear o errado. |
 | **Demonstração em terminal** (`ControleDemo`, `FifoTeste`) | Executam a regra de comparação FIFO sem API e sem banco. | Mostrar a regra de forma simples. |
 
-Ainda **não** existem: leitura de QR Code pela câmera (PWA) e usuários/perfis em uso.
+Ainda **não** existem: usuários/perfis em uso e autenticação.
 
 ## Como funciona
 
@@ -79,6 +80,7 @@ Na API, o `EstoqueService` calcula o "lote esperado" (o mais antigo do produto, 
 
 | Método | Rota | Descrição | Respostas |
 |--------|------|-----------|-----------|
+| GET | `/` | Tela operacional do almoxarifado (arquivos estáticos) | 200 |
 | GET | `/health` | Responde `Sistema OK` (texto fixo, não testa o banco) | 200 |
 | GET | `/api/exemplo` | Responde `API CristalMaster funcionando!` | 200 |
 | GET | `/produtos` | Lista os produtos | 200 |
@@ -86,6 +88,7 @@ Na API, o `EstoqueService` calcula o "lote esperado" (o mais antigo do produto, 
 | GET | `/api/lotes` | Lista os lotes em ordem FIFO | 200 |
 | GET | `/api/lotes/{codigoQr}` | Consulta um lote | 200, 404 |
 | POST | `/api/lotes` | Cadastra um lote | 201, 400, 422 |
+| GET | `/api/fifo/proximos` | Lote que deve sair primeiro de cada produto (mais antigo, com saldo e válido) | 200 |
 | POST | `/api/saidas` | Registra a saída de material validando o FIFO | 200, 400, 404, 422 |
 
 ### Códigos HTTP usados
@@ -103,6 +106,24 @@ Na API, o `EstoqueService` calcula o "lote esperado" (o mais antigo do produto, 
 `POST /api/saidas`: `{"codigoQr":"LOT101","quantidade":200}`
 
 A validação é feita por esquema (Bean Validation) nos DTOs `LoteRequest` e `SaidaRequest`. Roteiro completo de testes em [`docs/TESTES_API.md`](docs/TESTES_API.md).
+
+## Interface do operador (Aula 07)
+
+Tela única, pensada para o operador no celular e para leitura a 2 metros: fonte grande, alto contraste e cartões de estado. Foi feita em **HTML + CSS + JavaScript puros**, sem bibliotecas (abordagem mais rápida e que funciona sem internet), e é servida pelo próprio Spring Boot.
+
+**Como abrir:** com a API no ar, acesse `http://localhost:8080/`. Para ter lotes na tela, rode `docs/carregar-demo.ps1` (banco limpo).
+
+**Como usar:** digite ou leia o código do lote, informe a quantidade e toque em **Confirmar saída**. Tocar em um lote da lista preenche o código.
+
+| Cor | Significado |
+|-----|-------------|
+| Verde | Lote correto, baixa autorizada |
+| Vermelho (pulsando) | Bloqueio: violação de FIFO (mostra o lote esperado e a fileira) ou lote vencido |
+| Amarelo | Atenção: quantidade acima do saldo, lote não encontrado ou dados inválidos |
+
+Em baixo da faixa de resultado, a tela lista o **próximo lote a sair de cada produto** (`GET /api/fifo/proximos`) e todo o estoque em ordem FIFO (`GET /api/lotes`), com a fileira desenhada como a fita amarela do piso. A decisão de aprovar ou bloquear é sempre da API.
+
+**No celular:** com o celular na mesma rede Wi-Fi, abra `http://IP-DO-COMPUTADOR:8080/` (libere a porta 8080 no firewall). A **câmera e a instalação como app só funcionam em HTTPS ou em `localhost`**; pelo IP simples, digite o código. Com o celular Android conectado por USB e a depuração ativada, `adb reverse tcp:8080 tcp:8080` faz o `http://localhost:8080` do celular chegar ao computador e libera a câmera. A leitura do QR usa o `BarcodeDetector` (Chrome no Android).
 
 ## Banco de dados
 
@@ -136,6 +157,7 @@ cristal-master-main/
 │   │   ├── repositories/                   # acesso ao banco
 │   │   └── services/                       # FifoService, EstoqueService e teste manual
 │   ├── main/resources/application.properties   # conexão com o MySQL
+│   ├── main/resources/static/                   # tela operacional (PWA): index.html, css/, js/, sw.js, manifest, icons/
 │   └── test/java/.../CristalmasterApplicationTests.java
 └── backend/                         # resquício de um projeto Node.js (não faz parte da API Spring Boot)
 ```
@@ -149,7 +171,7 @@ cristal-master-main/
 3. Suba a API:
    - Windows: `mvnw.cmd spring-boot:run`
    - Linux/macOS: `./mvnw spring-boot:run`
-4. Teste: abra `http://localhost:8080/health` no navegador.
+4. Teste: abra `http://localhost:8080/health` no navegador. A tela do operador está em `http://localhost:8080/`.
 5. Cadastre e liste produtos (Postman ou `curl`):
    ```
    curl -X POST http://localhost:8080/produtos -H "Content-Type: application/json" -d "{\"sku\":\"RES-01\",\"nome\":\"Resina Cristal\"}"
@@ -179,6 +201,10 @@ Se a porta 8080 estiver ocupada (`8080 already in use`), há outra instância ro
 - Cadastro de lotes (201) e consulta (200/404)
 - Saída de material com FIFO, validade e saldo, bloqueio 400 e registro da tentativa
 
+**Sprint 4: Interface do operador** ✅
+- Tela mobile (PWA) com campo de lote, cartões verde/vermelho/amarelo e lista FIFO
+- Rota `GET /api/fifo/proximos` para indicar o lote certo antes da retirada
+
 ## Limitações conhecidas
 
 - O `/health` e o `/api/exemplo` devolvem texto fixo; o `/health` **não testa** a conexão com o banco.
@@ -187,6 +213,8 @@ Se a porta 8080 estiver ocupada (`8080 already in use`), há outra instância ro
 - Só há entrada de lote por cadastro; ainda não existe rota de entrada de saldo em lote existente nem de ajuste.
 - O `ControleDemo` falha se for digitado texto no lugar de um número no menu.
 - Não há autenticação.
+- A tela foi testada com a API simulada (17 verificações automáticas), mas ainda não em navegador/celular reais; a câmera exige HTTPS ou `localhost` e só funciona onde há `BarcodeDetector` (Chrome/Android).
+- A tela identifica o tipo de bloqueio pelo texto da mensagem da API; se as mensagens do `EstoqueService` mudarem, ajustar o `app.js`.
 
 ## Próximos passos
 
@@ -194,8 +222,8 @@ Se a porta 8080 estiver ocupada (`8080 already in use`), há outra instância ro
 2. Ler o mock industrial pela aplicação (ajustando-o ao novo formato de lote).
 3. Relacionar as entidades (lote → produto, movimentação → lote) e registrar o operador.
 4. Endpoint que informe **qual lote e fileira devem sair primeiro** antes da saída.
-5. Desenvolver a interface PWA.
-6. Implementar a leitura de QR Code pela câmera.
+5. Testar a câmera em um celular real (HTTPS) e ajustar a usabilidade.
+6. Painel com histórico das tentativas bloqueadas.
 
 ## Registro de uso de IA
 

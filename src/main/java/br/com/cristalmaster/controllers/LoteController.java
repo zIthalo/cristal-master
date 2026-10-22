@@ -21,6 +21,7 @@ import jakarta.validation.Valid;
  * Rotas de lotes.
  *  GET  /api/lotes          -> 200: lista em ordem FIFO (mais antigo primeiro)
  *  GET  /api/lotes/{qr}     -> 200 ou 404 se o QR não existir
+ *  GET  /api/fifo/proximos  -> 200: o lote que deve sair primeiro de cada produto (usado pela tela)
  *  POST /api/lotes          -> 201 criado | 422 payload inválido | 400 regra de negócio violada
  */
 @RestController
@@ -43,6 +44,11 @@ public class LoteController {
     public Lote buscar(@PathVariable String codigoQr) {
         return repository.findByCodigoQr(codigoQr)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Lote não encontrado: " + codigoQr));
+    }
+
+    @GetMapping("/api/fifo/proximos")
+    public List<Lote> proximos() {
+        return estoqueService.proximosPorProduto();
     }
 
     // @Valid aplica as regras do LoteRequest antes de entrar no método.

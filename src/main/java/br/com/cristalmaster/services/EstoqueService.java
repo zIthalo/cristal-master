@@ -2,6 +2,10 @@ package br.com.cristalmaster.services;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -93,6 +97,24 @@ public class EstoqueService {
         loteRepository.save(lote);
         registrar("SAIDA", lote, req.quantidade(), null);
         return new SaidaResponse(lote.getCodigoQr(), req.quantidade(), lote.getQtdAtual(), resultado);
+    }
+
+    /**
+     * Lote que deve sair primeiro de cada produto (o mais antigo, com saldo e dentro da validade).
+     * Usa a mesma regra do registrarSaida, para a tela mostrar ao operador o lote certo antes da retirada.
+     */
+    public List<Lote> proximosPorProduto() {
+        LocalDate hoje = LocalDate.now();
+        Map<String, Lote> proximos = new LinkedHashMap<>();
+        for (Lote l : loteRepository.findAllByOrderByDataEntradaAscIdAsc()) {
+            boolean disponivel = l.getProduto() != null
+                    && l.getQtdAtual() != null && l.getQtdAtual() > 0
+                    && l.getValidade() != null && !l.getValidade().isBefore(hoje);
+            if (disponivel) {
+                proximos.putIfAbsent(l.getProduto(), l);
+            }
+        }
+        return new ArrayList<>(proximos.values());
     }
 
     // Grava a tentativa bloqueada e devolve a exceção para ser lançada por quem chamou.

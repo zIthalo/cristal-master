@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d2b3e">
+<title>Cristal Master – Saída de lote</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/estilo.css">
+</head>
+<body>
+
+<header class="topo">
+  <h1>Cristal Master <small>Saída de lote</small></h1>
+  <div id="conexao" class="conexao" role="status">Conectando</div>
+</header>
+
+<main>
+  <!-- Tela operacional: ler o lote, informar a quantidade e confirmar. -->
+  <section class="conferir" aria-label="Conferir saída">
+    <label for="codigo">Código do lote (QR)</label>
+    <div class="linha">
+      <input id="codigo" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="LOT101" autofocus>
+      <button id="btn-qr" type="button" class="secundario" hidden>Ler QR</button>
+    </div>
+    <label for="quantidade">Quantidade (kg)</label>
+    <input id="quantidade" type="number" inputmode="numeric" min="1" step="1" placeholder="200">
+    <button id="btn-confirmar" type="button" class="primario">Confirmar saída</button>
+  </section>
+
+  <!-- Resposta da API: verde = baixa autorizada; vermelho = bloqueio; amarelo = atenção. -->
+  <section id="resultado" class="resultado" role="status" aria-live="assertive" hidden></section>
+
+  <section class="secao" aria-labelledby="t-proximos">
+    <h2 id="t-proximos">Próximo a sair de cada produto</h2>
+    <div id="proximos"></div>
+  </section>
+
+  <section class="secao" aria-labelledby="t-lista">
+    <h2 id="t-lista">Estoque em ordem FIFO</h2>
+    <ul id="lista" class="lista"></ul>
+  </section>
+</main>
+
+<footer class="rodape">
+  <span id="atualizado">Sem atualização</span>
+  <button id="btn-atualizar" type="button" class="secundario">Atualizar</button>
+</footer>
+
+<dialog id="dlg-qr">
+  <video id="video" playsinline muted></video>
+  <p>Aponte a câmera para o QR Code do lote.</p>
+  <button id="btn-cancelar-qr" type="button" class="secundario">Cancelar</button>
+</dialog>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

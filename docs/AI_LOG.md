@@ -630,3 +630,53 @@ Registro honesto: **a IA não executou o projeto** (sem Maven/MySQL no ambiente 
 - Como o projeto já tinha um `docs/AI_LOG.md` próprio da equipe (Aulas 02 a 05), os dois registros foram **unidos em um só arquivo, sem apagar nada**: Parte 1 (equipe, texto original) e Parte 2 (conversas com a IA, Prompts 1 a 19). Entrega: `cristalmaster-ai-log-docs.zip` com `docs/AI_LOG.md`, para extrair por cima do arquivo atual.
 
 ---
+
+## Prompt 20 (22/10/2026)
+
+**Prompt enviado:**
+
+> Como rodar o arquivo?
+
+**Resposta resumida:** pergunta interpretada como "como rodar o sistema com a interface". Passo a passo: aplicar os zips na ordem, ligar o MySQL no XAMPP, subir com `.\mvnw.cmd clean spring-boot:run`, abrir `http://localhost:8080/`, carregar os lotes de demonstração (`docs/carregar-demo.ps1`, com `-ExecutionPolicy Bypass` se o Windows bloquear) e testar os cenários verde, vermelho e amarelo. Avisos: não abrir o `index.html` com duplo clique; a senha `senai` só vale no banco da apresentação. Nenhum arquivo do projeto foi alterado.
+
+---
+
+## Prompt 21 (22/10/2026)
+
+**Prompt enviado:**
+
+> Erro no powershell: *(log do `mvnw.cmd clean spring-boot:run`)*
+> Trecho principal: `Failed to execute goal ... maven-compiler-plugin:3.15.0:compile ... Fatal error compiling: error: release version 21 not supported`
+
+**Erro real de execução (Aula 07):**
+
+- **Sintoma:** o Maven baixou os plugins, limpou o `target`, copiou os 7 recursos (a tela em `static/`) e parou ao compilar os 23 arquivos Java com `release version 21 not supported`.
+- **Causa:** o Maven estava rodando com um JDK **anterior ao 21** (o `JAVA_HOME`/`java` do PowerShell aponta para uma versão antiga). O `pom.xml` pede Java 21. Não é erro do código: a falha ocorre antes de o código ser compilado.
+- **Correção sugerida:** apontar `JAVA_HOME` e o `Path` da sessão para um JDK 21 ou superior (o log anterior do usuário mostrava o JDK 23 em `C:\Program Files\Java\jdk-23`), confirmar com `.\mvnw.cmd -version` e rodar de novo; para fixar, definir `JAVA_HOME` nas variáveis de ambiente do Windows ou instalar o JDK 21.
+- **Status:** aguardando o resultado do usuário. O código novo (validação, rotas, tela) ainda não foi compilado.
+
+---
+
+## Prompt 22 (22/10/2026)
+
+**Prompt enviado:**
+
+> Rodei o código .\mvnw.cmd clean spring-boot:run e funcionou.
+
+**Resultado:** após apontar o `JAVA_HOME` para um JDK 21 ou superior, o projeto compilou e subiu. Isso resolve as dúvidas pendentes da compilação: a dependência `spring-boot-starter-validation` foi resolvida pelo Maven e os 23 arquivos Java (validação, rotas, entidades, `EstoqueService`) compilaram no Spring Boot 4.1.1.
+
+**Ainda não confirmado (a testar pelo aluno):** comportamento das rotas com o MySQL real (roteiro em `docs/TESTES_API.md`), aparência da tela em navegador/celular e câmera. Registrar os ajustes de usabilidade no checklist do Prompt 18.
+
+---
+
+## Prompt 23 (22/10/2026)
+
+**Prompt enviado:**
+
+> Explique passo a passo como rodar os testes.
+
+**Resposta resumida:** passo a passo de quatro conjuntos de testes: (1) automático `.\mvnw.cmd test` (só verifica se o contexto sobe; exige MySQL ligado); (2) roteiro da API em PowerShell (`docs/TESTES_API.md`: 200, 201, 400, 404, 422) com conferência das tentativas bloqueadas no banco; (3) cenários da tela (verde, vermelho e amarelo) com os lotes de `docs/carregar-demo.ps1`; (4) FIFO no terminal (`FifoTeste` e `ControleDemo`).
+
+**Ajuste feito na documentação:** identificado que o roteiro da API e o script de demonstração usam as mesmas fileiras (F01 a F03), o que geraria erro 400 "fileira ocupada" se misturados. `docs/TESTES_API.md` passou a ter a seção "Antes de começar" (banco limpo, como apagar o banco pelo `mysql.exe` do XAMPP, dois PowerShell) e o comando de conferência das movimentações. Entrega: `cristalmaster-docs.zip` (`docs/AI_LOG.md` e `docs/TESTES_API.md`).
+
+---

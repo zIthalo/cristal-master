@@ -14,6 +14,16 @@ function Chamar($metodo, $url, $corpo) {
 $u = "http://localhost:8080"
 ```
 
+## Antes de começar
+
+- Use o **banco limpo**. Este roteiro cadastra `LOT101` a `LOT103` nas fileiras `F01` a `F03`, e o `docs/carregar-demo.ps1` usa as mesmas fileiras: **não misture os dois** sem limpar o banco entre eles.
+- Para limpar: pare a API (`Ctrl+C`), apague o banco e suba a API de novo (ele é recriado sozinho):
+  ```powershell
+  & "C:\xampp\mysql\bin\mysql.exe" -u root -e "DROP DATABASE cristalmaster;"
+  ```
+  Se o seu MySQL tem senha, acrescente `-p` depois de `-u root` e digite a senha quando pedir.
+- Use dois PowerShell: um com a API rodando e outro para os testes.
+
 > Os testes abaixo usam a data de hoje (22/10/2026) como referência para validade. Se a data do computador for outra, ajuste as validades.
 
 ## 1. Cadastro de lotes (sucesso: 201)
@@ -77,4 +87,9 @@ Chamar POST "$u/api/saidas" '{"codigoQr":"LOT999","quantidade":10}'
 | 404 | Lote não encontrado |
 | 422 | Payload fora do esquema (campo ausente/vazio/negativo, tipo ou data errados, JSON quebrado) |
 
-Para repetir o roteiro do zero, apague os dados: `DELETE FROM movimentacoes; DELETE FROM lotes;` (ou recrie o banco).
+Para conferir as tentativas bloqueadas no banco:
+```powershell
+& "C:\xampp\mysql\bin\mysql.exe" -u root cristalmaster -e "SELECT tipo, codigo_qr, quantidade, motivo FROM movimentacoes;"
+```
+
+Para repetir o roteiro do zero, apague o banco como descrito em "Antes de começar".

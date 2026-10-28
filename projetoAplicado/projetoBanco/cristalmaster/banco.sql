@@ -11,7 +11,7 @@ CREATE DATABASE IF NOT EXISTS cristalmaster
 
 -- Usuário exclusivo da aplicação (evita usar o root na conexão)
 -- TROQUE a senha abaixo e use a mesma em DB_PASSWORD.
-CREATE USER IF NOT EXISTS 'cristal'@'%' IDENTIFIED BY 'troque_esta_senha';
+CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'senai';
 GRANT ALL PRIVILEGES ON cristalmaster.* TO 'cristal'@'%';
 FLUSH PRIVILEGES;
 

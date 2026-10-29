@@ -1,0 +1,83 @@
+/* Aula 08 – feedback visual da integração (arquivo novo; não altera o estilo.css). */
+
+/* Faixa vermelha fixa quando a API está fora */
+.aviso-erro {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 14px 16px;
+  background: #b3261e;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  border-bottom: 4px solid #7a1410;
+}
+
+/* Com a API fora, os dados antigos ficam esmaecidos (continuam visíveis, mas "velhos") */
+body.api-fora .dados { opacity: 0.45; filter: grayscale(0.6); }
+
+/* "Carregando..." na primeira consulta */
+.carregando { animation: piscar 1.2s ease-in-out infinite; }
+.pulsando { animation: piscar 1s ease-in-out infinite; }
+@keyframes piscar { 50% { opacity: 0.35; } }
+
+/* Lote ou movimentação que acabou de chegar */
+.novo { animation: destaque 2.5s ease-out; border-radius: 10px; }
+@keyframes destaque {
+  0%   { box-shadow: 0 0 0 4px #f5c400; background: rgba(245, 196, 0, 0.25); }
+  100% { box-shadow: 0 0 0 0 transparent; background: transparent; }
+}
+
+/* Movimentações ao vivo */
+.lista-movs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mov {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 6px solid;
+  background: rgba(127, 127, 127, 0.08);
+}
+.mov.saida { border-left-color: #1e8e3e; }
+.mov.bloqueada { border-left-color: #d93025; }
+.mov-icone {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 800; color: #fff;
+}
+.mov.saida .mov-icone { background: #1e8e3e; }
+.mov.bloqueada .mov-icone { background: #d93025; }
+.mov-titulo { font-weight: 700; }
+.mov-motivo { font-size: 0.9rem; opacity: 0.8; overflow-wrap: anywhere; }
+.mov-hora { font-variant-numeric: tabular-nums; font-size: 0.9rem; opacity: 0.75; }
+
+/* Avisos rápidos (toasts) */
+.avisos {
+  position: fixed;
+  left: 16px; right: 16px; bottom: 72px;
+  z-index: 30;
+  display: grid; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  max-width: 520px; margin: 0 auto; width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.5s, transform 0.5s;
+}
+.toast.ok   { background: #1e8e3e; }
+.toast.erro { background: #d93025; }
+.toast.info { background: #1a5f8a; }
+.toast.saindo { opacity: 0; transform: translateY(8px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .carregando, .pulsando, .novo { animation: none; }
+  .toast { transition: none; }
+}

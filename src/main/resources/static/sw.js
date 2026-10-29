@@ -1,8 +1,9 @@
 // Service worker: deixa o app instalável e abre a tela mesmo sem rede.
 // Páginas e arquivos: rede primeiro, cache como reserva. Chamadas /api/ nunca vão para o cache
 // (saldo e FIFO precisam ser sempre os dados reais do servidor).
-const CACHE = 'cristalmaster-v1';
-const BASE = ['/', '/css/estilo.css', '/js/app.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+// Aula 08: versão v2 (inclui o css/integracao.css no cache de reserva).
+const CACHE = 'cristalmaster-v2';
+const BASE = ['/', '/css/estilo.css', '/css/integracao.css', '/js/app.js', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(BASE)));

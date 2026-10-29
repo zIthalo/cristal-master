@@ -1,11 +1,19 @@
-// Tela operacional do almoxarifado (Aula 07).
-// Fala com a API Spring Boot na mesma origem: GET /api/fifo/proximos, GET /api/lotes e POST /api/saidas.
-// Se a tela for aberta de outro endereço (ex.: Live Server), troque API por 'http://localhost:8080'
-// (e libere CORS no backend).
+// Tela operacional do almoxarifado (Aula 07 + integração ponta a ponta da Aula 08).
+// Fala com a API Spring Boot: GET /api/fifo/proximos, GET /api/lotes, GET /api/movimentacoes e POST /api/saidas.
+// Aula 08: a tela se atualiza sozinha (polling), mostra "carregando", avisa em vermelho quando a API cai
+// e reage às movimentações geradas pelo simulador (mock/simulador.ps1).
 (() => {
   'use strict';
 
-  const API = '';
+  // Servida pelo próprio Spring (porta 8080) => mesma origem (API = '').
+  // Aberta pelo Live Server/Vite/arquivo local => aponta para a API na 8080 (precisa do CorsConfig no backend).
+  const PORTAS_DEV = ['5500', '5173', '3000'];
+  const API = (location.protocol === 'file:' || PORTAS_DEV.includes(location.port)) ? 'http://localhost:8080' : '';
+
+  const INTERVALO_MS = 3000;   // de quanto em quanto tempo a tela consulta a API
+  const LIMITE_MOVS = 15;      // quantas movimentações mostrar
+  const TEMPO_LIMITE_MS = 5000; // requisição sem resposta depois disso conta como erro de rede
+
   const $ = (id) => document.getElementById(id);
 
   // Cria um elemento com classe e texto (textContent evita injetar HTML vindo do servidor).
@@ -18,27 +26,59 @@
 
   const pad = (n) => String(n).padStart(2, '0');
   const formatarData = (iso) => (iso ? iso.split('-').reverse().join('/') : '-');
+  const horaAgora = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
   function hojeISO() {
     const d = new Date();
     return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
   }
 
-  // Chamada à API: devolve sempre {status, corpo}; só lança erro se o servidor estiver inacessível.
-  async function chamar(caminho, opcoes) {
-    const resp = await fetch(API + caminho, opcoes);
-    let corpo = null;
-    try { corpo = await resp.json(); } catch (e) { /* resposta sem JSON */ }
-    return { status: resp.status, corpo };
+  // Chamada à API: devolve sempre {status, corpo}; só lança erro se o servidor estiver inacessível
+  // (rede caída, API desligada, CORS bloqueado ou sem resposta em TEMPO_LIMITE_MS).
+  async function chamar(caminho, opcoes = {}) {
+    const controle = new AbortController();
+    const timer = setTimeout(() => controle.abort(), TEMPO_LIMITE_MS);
+    try {
+      const resp = await fetch(API + caminho, { ...opcoes, signal: controle.signal, cache: 'no-store' });
+      let corpo = null;
+      try { corpo = await resp.json(); } catch (e) { /* resposta sem JSON */ }
+      return { status: resp.status, corpo };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
-  // ---------- Conexão ----------
+  // ---------- Conexão e aviso de erro ----------
   function marcarConexao(online) {
     const c = $('conexao');
     c.className = 'conexao ' + (online ? 'on' : 'off');
     c.textContent = online ? 'Servidor online' : 'Servidor offline';
   }
 
-  // ---------- Listas ----------
+  function mostrarErroApi(texto) {
+    const a = $('aviso-erro');
+    a.textContent = texto;
+    a.hidden = false;
+    document.body.classList.add('api-fora');
+  }
+
+  function esconderErroApi() {
+    $('aviso-erro').hidden = true;
+    document.body.classList.remove('api-fora');
+  }
+
+  // ---------- Avisos rápidos (toasts) para o que chega do simulador ----------
+  function avisar(tipo, texto) {
+    const area = $('avisos');
+    const t = el('div', 'toast ' + tipo, texto);
+    area.prepend(t);
+    while (area.children.length > 4) area.lastChild.remove();
+    setTimeout(() => t.classList.add('saindo'), 4500);
+    setTimeout(() => t.remove(), 5000);
+  }
+
+  // ---------- Listas de lotes ----------
+  let codigosConhecidos = null; // null = primeira carga (não destaca nada)
+
   function linhaLote(lote, opcoes) {
     const b = el('button', 'linha-lote');
     b.type = 'button';
@@ -78,32 +118,123 @@
       return;
     }
     const hoje = hojeISO();
+    const novos = [];
     lotes.forEach((l) => {
       let selo = null;
       if ((l.qtdAtual ?? 0) <= 0) selo = { classe: 'esgotado', texto: 'Esgotado' };
       else if (l.validade && l.validade < hoje) selo = { classe: 'vencido', texto: 'Vencido' };
       else if (codigosProximos.has(l.codigoQr)) selo = { classe: 'proximo', texto: 'Próximo a sair' };
       const li = el('li');
+      // Lote que não existia na consulta anterior = entrada nova (ex.: cadastrada pelo simulador).
+      if (codigosConhecidos && !codigosConhecidos.has(l.codigoQr)) {
+        li.className = 'novo';
+        novos.push(l);
+      }
       li.appendChild(linhaLote(l, { mostrarProduto: false, selo }));
       ul.appendChild(li);
     });
+    novos.forEach((l) => avisar('info', 'Novo lote registrado: ' + l.codigoQr + ' (' + (l.produto || 'sem produto') + ', fileira ' + (l.fileira || '-') + ')'));
+    codigosConhecidos = new Set(lotes.map((l) => l.codigoQr));
+  }
+
+  // ---------- Movimentações ao vivo ----------
+  let ultimoIdMov = null; // null = primeira carga (não gera aviso)
+
+  function linhaMov(m, nova) {
+    const bloqueada = String(m.tipo).toUpperCase().includes('BLOQUEADA');
+    const li = el('li', 'mov ' + (bloqueada ? 'bloqueada' : 'saida') + (nova ? ' novo' : ''));
+    li.appendChild(el('span', 'mov-icone', bloqueada ? '✕' : '✓'));
+    const corpo = el('div', 'mov-corpo');
+    const titulo = (bloqueada ? 'Bloqueada' : 'Saída') + ' · ' + (m.codigoQr || '?') + (m.quantidade != null ? ' · ' + m.quantidade + ' kg' : '');
+    corpo.appendChild(el('div', 'mov-titulo', titulo));
+    if (m.motivo) corpo.appendChild(el('div', 'mov-motivo', m.motivo));
+    li.appendChild(corpo);
+    const hora = m.dataHora ? String(m.dataHora).replace(' ', 'T').slice(11, 19) : '';
+    li.appendChild(el('span', 'mov-hora', hora));
+    return li;
+  }
+
+  function desenharMovimentacoes(movs) {
+    const ul = $('movimentacoes');
+    ul.replaceChildren();
+    if (!movs.length) {
+      ul.appendChild(el('li', 'vazio', 'Nenhuma movimentação registrada ainda.'));
+      return;
+    }
+    const idAnterior = ultimoIdMov;
+    movs.forEach((m) => {
+      const nova = idAnterior !== null && m.id > idAnterior;
+      ul.appendChild(linhaMov(m, nova));
+      if (nova) {
+        const bloqueada = String(m.tipo).toUpperCase().includes('BLOQUEADA');
+        avisar(bloqueada ? 'erro' : 'ok', (bloqueada ? 'Tentativa bloqueada: ' : 'Saída registrada: ') + m.codigoQr + (m.motivo ? ' (' + m.motivo + ')' : ''));
+      }
+    });
+    ultimoIdMov = Math.max(idAnterior ?? 0, ...movs.map((m) => m.id || 0));
+  }
+
+  // ---------- Carga e atualização automática ----------
+  let carregando = false;
+  let primeiraCarga = true;
+
+  function mostrarCarregando() {
+    const msg = () => el('p', 'vazio carregando', 'Carregando...');
+    $('proximos').replaceChildren(msg());
+    $('lista').replaceChildren(el('li', 'vazio carregando', 'Carregando lotes...'));
+    $('movimentacoes').replaceChildren(el('li', 'vazio carregando', 'Carregando movimentações...'));
   }
 
   async function carregar() {
+    if (carregando) return;           // evita duas consultas ao mesmo tempo
+    carregando = true;
+    if (primeiraCarga) mostrarCarregando();
+    $('atualizado').textContent = 'Atualizando...';
+    $('atualizado').classList.add('pulsando');
     try {
-      const [prox, todos] = await Promise.all([chamar('/api/fifo/proximos'), chamar('/api/lotes')]);
-      if (prox.status !== 200 || todos.status !== 200) throw new Error('resposta inesperada');
+      const [prox, todos, movs] = await Promise.all([
+        chamar('/api/fifo/proximos'),
+        chamar('/api/lotes'),
+        chamar('/api/movimentacoes?limite=' + LIMITE_MOVS).catch(() => null),
+      ]);
+      if (prox.status !== 200 || todos.status !== 200) {
+        throw Object.assign(new Error('http'), { http: prox.status !== 200 ? prox.status : todos.status });
+      }
       marcarConexao(true);
+      esconderErroApi();
       desenharProximos(prox.corpo);
       desenharLista(todos.corpo, new Set(prox.corpo.map((l) => l.codigoQr)));
-      const d = new Date();
-      $('atualizado').textContent = 'Atualizado às ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      if (movs && movs.status === 200 && Array.isArray(movs.corpo)) {
+        desenharMovimentacoes(movs.corpo);
+      } else if (movs && movs.status === 404) {
+        $('movimentacoes').replaceChildren(el('li', 'vazio', 'Rota GET /api/movimentacoes ainda não existe no backend.'));
+      }
+      primeiraCarga = false;
+      $('atualizado').textContent = 'Atualizado às ' + horaAgora() + ' · automático a cada ' + INTERVALO_MS / 1000 + ' s';
     } catch (e) {
       marcarConexao(false);
-      $('proximos').replaceChildren(el('p', 'vazio', 'Não foi possível carregar os lotes. Verifique a rede e toque em Atualizar.'));
-      $('lista').replaceChildren();
+      const motivo = e.http
+        ? 'A API respondeu com erro ' + e.http + '.'
+        : 'Sem comunicação com a API (servidor desligado, rede caída ou CORS bloqueado).';
+      mostrarErroApi('⚠ ' + motivo + ' Tentando de novo a cada ' + INTERVALO_MS / 1000 + ' s. Última tentativa às ' + horaAgora() + '.');
+      if (primeiraCarga) {
+        $('proximos').replaceChildren(el('p', 'vazio', 'Não foi possível carregar os lotes.'));
+        $('lista').replaceChildren();
+        $('movimentacoes').replaceChildren();
+      }
+      // Depois da primeira carga, mantém os últimos dados na tela (esmaecidos pelo CSS) em vez de apagar tudo.
+      $('atualizado').textContent = 'Falha às ' + horaAgora();
+    } finally {
+      $('atualizado').classList.remove('pulsando');
+      carregando = false;
     }
   }
+
+  // Polling: consulta a API a cada INTERVALO_MS. Pausa com a aba escondida para não gastar bateria/rede.
+  function cicloAutomatico() {
+    if (!document.hidden) carregar();
+    setTimeout(cicloAutomatico, INTERVALO_MS);
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) carregar(); });
 
   // ---------- Resultado da saída ----------
   function mostrarResultado(tipo, simbolo, titulo, detalhes, esperado) {
@@ -125,15 +256,15 @@
     const { status, corpo } = resp;
     const msg = corpo && corpo.erro ? corpo.erro : '';
     if (status === 200) {
-      mostrarResultado('ok', '\u2713', 'Lote correto: baixa autorizada',
+      mostrarResultado('ok', '✓', 'Lote correto: baixa autorizada',
         ['Lote ' + corpo.codigoQr + ': saíram ' + corpo.quantidadeRetirada + ' kg.', 'Saldo atual: ' + corpo.saldoAtual + ' kg.']);
     } else if (status === 400 && msg.startsWith('FIFO violado')) {
       const m = msg.match(/esperado é (\S+) \(fileira ([^)]+)\)/);
-      mostrarResultado('bloqueio', '\u2715', 'Violação de FIFO',
+      mostrarResultado('bloqueio', '✕', 'Violação de FIFO',
         ['Este não é o lote que deve sair primeiro.', m ? 'Retire da fileira ' + m[2] + '.' : msg],
         m ? 'Lote esperado: ' + m[1] : null);
     } else if (status === 400 && msg.startsWith('Lote vencido')) {
-      mostrarResultado('bloqueio', '\u2715', 'Lote vencido', [msg + '.', 'Separe o lote e avise o supervisor.']);
+      mostrarResultado('bloqueio', '✕', 'Lote vencido', [msg + '.', 'Separe o lote e avise o supervisor.']);
     } else if (status === 400) {
       mostrarResultado('alerta', '!', msg.startsWith('Quantidade acima') ? 'Quantidade acima do saldo' : 'Saída bloqueada', [msg]);
     } else if (status === 404) {
@@ -142,12 +273,13 @@
       const campos = corpo && corpo.campos ? Object.values(corpo.campos) : [msg || 'Confira os dados informados.'];
       mostrarResultado('alerta', '!', 'Dados inválidos', campos);
     } else {
-      mostrarResultado('bloqueio', '\u2715', 'Erro no servidor', ['Tente novamente. Se continuar, avise o suporte.']);
+      mostrarResultado('bloqueio', '✕', 'Erro no servidor', ['Tente novamente. Se continuar, avise o suporte.']);
     }
   }
 
   async function confirmarSaida() {
     const botao = $('btn-confirmar');
+    if (botao.disabled) return;
     const codigo = $('codigo').value.trim();
     const qtdTexto = $('quantidade').value.trim();
     // Os campos são enviados como estão: quem valida é a API (422 para o que estiver fora do esquema).
@@ -161,6 +293,7 @@
         body: JSON.stringify(payload),
       });
       marcarConexao(true);
+      esconderErroApi();
       exibirResposta(resp);
       if (resp.status === 200) {
         $('codigo').value = '';
@@ -237,5 +370,5 @@
     navigator.serviceWorker.register('/sw.js').catch(() => { /* sem service worker a tela continua funcionando */ });
   }
 
-  carregar();
+  cicloAutomatico();
 })();

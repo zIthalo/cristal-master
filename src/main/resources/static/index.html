@@ -9,6 +9,8 @@
 <link rel="icon" href="/icons/icon-192.png">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="/css/estilo.css">
+<!-- Aula 08: aviso de erro da API, carregando, avisos rápidos e movimentações ao vivo -->
+<link rel="stylesheet" href="css/integracao.css">
 </head>
 <body>
 
@@ -16,6 +18,12 @@
   <h1>Cristal Master <small>Saída de lote</small></h1>
   <div id="conexao" class="conexao" role="status">Conectando</div>
 </header>
+
+<!-- Aula 08: faixa vermelha fixa quando a API não responde -->
+<div id="aviso-erro" class="aviso-erro" role="alert" hidden></div>
+
+<!-- Aula 08: avisos rápidos (novo lote, saída registrada, tentativa bloqueada) -->
+<div id="avisos" class="avisos" aria-live="polite"></div>
 
 <main>
   <!-- Tela operacional: ler o lote, informar a quantidade e confirmar. -->
@@ -35,12 +43,18 @@
 
   <section class="secao" aria-labelledby="t-proximos">
     <h2 id="t-proximos">Próximo a sair de cada produto</h2>
-    <div id="proximos"></div>
+    <div id="proximos" class="dados"></div>
+  </section>
+
+  <!-- Aula 08: saídas aprovadas e tentativas bloqueadas, atualizadas automaticamente -->
+  <section class="secao" aria-labelledby="t-movs">
+    <h2 id="t-movs">Movimentações ao vivo</h2>
+    <ul id="movimentacoes" class="lista-movs dados"></ul>
   </section>
 
   <section class="secao" aria-labelledby="t-lista">
     <h2 id="t-lista">Estoque em ordem FIFO</h2>
-    <ul id="lista" class="lista"></ul>
+    <ul id="lista" class="lista dados"></ul>
   </section>
 </main>
 

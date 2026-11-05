@@ -40,8 +40,8 @@ Simulador → API Spring Boot → MySQL → tela do operador, tudo ao vivo.
 
 1. **MySQL ligado:** XAMPP → **Start** no módulo **MySQL** (fica verde, porta 3306).
 2. **API**, num PowerShell na pasta do projeto:
-   - Banco da apresentação (senha `senai`): `.\mvnw.cmd spring-boot:run`
-   - XAMPP com root sem senha: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`
+   - Banco da apresentação (senha `senai`): `\.mvnw.cmd spring-boot:run`
+   - XAMPP com root sem senha: `\.mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`
 
    Espere `Started CristalmasterApplication`. Dica: com o polling, `spring.jpa.show-sql=true` enche o console; deixe `false` durante a apresentação se quiser mostrar os logs.
 3. **Confira o banco:** `http://localhost:8080/health` → `Sistema OK - banco de dados conectado`.
@@ -68,7 +68,7 @@ Simulador → API Spring Boot → MySQL → tela do operador, tudo ao vivo.
 |---|---|---|
 | A API não sobe; no terminal: `Access denied for user 'root'@'localhost' (using password: YES)` | XAMPP com root sem senha e o `application.properties` com `senai` | Subir com o perfil `xampp` (passo 2) |
 | A API não sobe; `Communications link failure` | MySQL desligado | XAMPP → Start no MySQL |
-| `release version 21 not supported` | Maven rodando com JDK antigo | Apontar `JAVA_HOME` para o JDK 21+ (`.\mvnw.cmd -version`) |
+| `release version 21 not supported` | Maven rodando com JDK antigo | Apontar `JAVA_HOME` para o JDK 21+ (`\.mvnw.cmd -version`) |
 | `Port 8080 was already in use` | Outra instância da API aberta | Fechar o outro terminal ou encerrar o processo `java` |
 | Tela parada em "Conectando", botão Atualizar sem efeito | `app.js` antigo ou não carregado | Conferir `static/js/app.js`, reiniciar a API, Ctrl + Shift + R; o `index.html` novo mostra o motivo em vermelho |
 | Alterei o CSS/JS e a tela não muda | API servindo a cópia antiga de `target/` ou cache do navegador | Reiniciar a API **uma vez** depois de aplicar o `application.properties` novo; a partir daí basta F5 (se não mudar, Ctrl + Shift + R). Se o seletor também existe no `integracao.css`, vale o dele (é carregado depois) |

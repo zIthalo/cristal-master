@@ -15,6 +15,10 @@
   const LIMITE_MOVS = 15;      // quantas movimentações mostrar
   const TEMPO_LIMITE_MS = 5000; // requisição sem resposta depois disso conta como erro de rede
 
+  // Servida pelo próprio Spring (porta 8080) => mesma origem (API = '').
+  // Aberta pelo Live Server/Vite/arquivo local => aponta para a API na 8080 (precisa do CorsConfig no backend).
+  const PORTAS_DEV = ['5500', '5173', '3000'];
+  const API = (location.protocol === 'file:' || PORTAS_DEV.includes(location.port)) ? 'http://localhost:8080' : '';
   const $ = (id) => document.getElementById(id);
 
   // Cria um elemento com classe e texto (textContent evita injetar HTML vindo do servidor).

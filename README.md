@@ -2,7 +2,7 @@
 
 Sistema de controle de estoque FIFO para o almoxarifado da Cristal Master, indústria que trabalha com resinas e aditivos. A visão final é um **PWA mobile**: o operador abre o app direto no celular, sem instalar nada de loja, e usa a câmera para ler os QR Codes dos lotes.
 
-> **Situação atual:** backend (API REST em Spring Boot + MySQL) com cadastro de lotes, **saída de material validada pelo FIFO** (com bloqueio e registro de tentativas) e validação de payload com códigos HTTP corretos. A **tela operacional** (PWA em HTML/CSS/JS) já consome a API; a leitura de QR pela câmera está implementada, mas ainda precisa ser testada em um celular real. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
+> **Situação atual:** backend (API REST em Spring Boot + MySQL) com cadastro de lotes, **saída de material validada pelo FIFO** (com bloqueio e registro de tentativas) e validação de payload com códigos HTTP corretos. A **tela operacional** (PWA em HTML/CSS/JS) consome a API e **se atualiza sozinha a cada 3 s**, com aviso de carregamento e de falha de comunicação; um **simulador** (`mock/simulador.ps1`) gera entradas, saídas e tentativas bloqueadas pela API real e a tela reage ao vivo (Aula 08). A leitura de QR pela câmera está implementada, mas ainda precisa ser testada em um celular real. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
 
 ## Problema do almoxarifado
 
@@ -29,6 +29,9 @@ Resumo direto do que existe e funciona neste momento:
 | **Cadastro e consulta de lotes** (`/api/lotes`) | Cadastra lotes (código QR, produto, fileira, quantidade, entrada, validade) e lista em ordem FIFO. | Base de dados do estoque. |
 | **Cadastro de produtos** (`/produtos`) | Grava e lista produtos no MySQL. | Base de dados. |
 | **Tela operacional (PWA)** (`/`) | Tela de celular: o operador informa o lote e a quantidade; cartão **verde** (baixa autorizada), **vermelho** (violação de FIFO ou lote vencido) ou **amarelo** (atenção). Mostra o próximo lote a sair de cada produto. | Indicar o lote certo antes da retirada e bloquear o errado. |
+| **Movimentações ao vivo** (`GET /api/movimentacoes`) | A tela mostra as últimas saídas (verde) e tentativas bloqueadas (vermelho) com o motivo, e avisa quando chega lote novo ou bloqueio. | Rastrear tentativas erradas na hora. |
+| **Simulador** (`mock/simulador.ps1`) | Faz o papel do operador pela API real: cadastra lotes, faz saídas certas e tenta saídas fora do FIFO, vencidas e acima do saldo. | Testar o fluxo completo sem equipamento. |
+| **Health check real** (`GET /health`) | Testa a conexão com o MySQL: 200 se o banco responde, 503 com o motivo se não. | Saber se o problema é a API ou o banco. |
 | **Demonstração em terminal** (`ControleDemo`, `FifoTeste`) | Executam a regra de comparação FIFO sem API e sem banco. | Mostrar a regra de forma simples. |
 
 Ainda **não** existem: usuários/perfis em uso e autenticação.
@@ -81,7 +84,7 @@ Na API, o `EstoqueService` calcula o "lote esperado" (o mais antigo do produto, 
 | Método | Rota | Descrição | Respostas |
 |--------|------|-----------|-----------|
 | GET | `/` | Tela operacional do almoxarifado (arquivos estáticos) | 200 |
-| GET | `/health` | Responde `Sistema OK` (texto fixo, não testa o banco) | 200 |
+| GET | `/health` | Testa a conexão com o banco: `Sistema OK - banco de dados conectado` ou o motivo da falha | 200, 503 |
 | GET | `/api/exemplo` | Responde `API CristalMaster funcionando!` | 200 |
 | GET | `/produtos` | Lista os produtos | 200 |
 | POST | `/produtos` | Cadastra um produto | 200 |
@@ -90,6 +93,7 @@ Na API, o `EstoqueService` calcula o "lote esperado" (o mais antigo do produto, 
 | POST | `/api/lotes` | Cadastra um lote | 201, 400, 422 |
 | GET | `/api/fifo/proximos` | Lote que deve sair primeiro de cada produto (mais antigo, com saldo e válido) | 200 |
 | POST | `/api/saidas` | Registra a saída de material validando o FIFO | 200, 400, 404, 422 |
+| GET | `/api/movimentacoes?limite=15` | Últimas movimentações (saídas e tentativas bloqueadas), mais recente primeiro | 200 |
 
 ### Códigos HTTP usados
 
@@ -100,6 +104,7 @@ Na API, o `EstoqueService` calcula o "lote esperado" (o mais antigo do produto, 
 | 400 | Regra de negócio violada (FIFO, validade, saldo, fileira ocupada, código repetido) |
 | 404 | Lote não encontrado |
 | 422 | Payload fora do esquema (campo ausente/vazio/negativo, tipo ou data errados, JSON quebrado) |
+| 503 | `/health`: a API está no ar, mas o banco de dados não responde |
 
 ### Exemplo de payload
 
@@ -125,6 +130,22 @@ Em baixo da faixa de resultado, a tela lista o **próximo lote a sair de cada pr
 
 **No celular:** com o celular na mesma rede Wi-Fi, abra `http://IP-DO-COMPUTADOR:8080/` (libere a porta 8080 no firewall). A **câmera e a instalação como app só funcionam em HTTPS ou em `localhost`**; pelo IP simples, digite o código. Com o celular Android conectado por USB e a depuração ativada, `adb reverse tcp:8080 tcp:8080` faz o `http://localhost:8080` do celular chegar ao computador e libera a câmera. A leitura do QR usa o `BarcodeDetector` (Chrome no Android).
 
+## Integração ponta a ponta (Aula 08)
+
+```
+ mock/simulador.ps1 ──POST /api/lotes, /api/saidas──▶  API Spring Boot (8080)  ──▶ MySQL
+                                                              ▲
+ Tela (index.html + app.js) ──GET a cada 3 s─────────────────┘
+   /api/fifo/proximos · /api/lotes · /api/movimentacoes
+```
+
+- **Consumo da API:** a tela não tem dados fixos; consulta a API a cada 3 s (pausa com a aba escondida) e após cada saída.
+- **CORS:** `config/CorsConfig.java` libera `http://localhost:*` e `http://127.0.0.1:*`. Aberta em `http://localhost:8080/` a tela está na mesma origem; aberta pelo Live Server (5500), Vite (5173) ou React (3000), o `app.js` aponta sozinho para `http://localhost:8080`.
+- **Carregando e erro:** "Carregando..." na primeira consulta e "Atualizando..." no rodapé; se a API não responde, faixa **vermelha** fixa no topo, "Servidor offline" e os dados antigos esmaecidos (não somem). Erro 500 avisa que o provável problema é o banco. Se o próprio `app.js` não carregar, o `index.html` mostra o motivo em vermelho.
+- **Reação ao simulador:** lote novo e movimentação nova piscam em amarelo e geram um aviso rápido (azul = lote novo, verde = saída, vermelho = bloqueio).
+
+Roteiro completo da demonstração em [`docs/AULA08_INTEGRACAO.md`](docs/AULA08_INTEGRACAO.md).
+
 ## Banco de dados
 
 O banco `cristalmaster` (MySQL) é **criado automaticamente** na primeira execução (parâmetro `createDatabaseIfNotExist=true` na URL de conexão), e as **tabelas** são criadas/ajustadas pelo Hibernate (`ddl-auto=update`). Não é preciso rodar `CREATE DATABASE` nem usar o MySQL Workbench; só é necessário que o servidor MySQL esteja ligado e que o usuário tenha permissão para criar bancos.
@@ -145,18 +166,22 @@ cristal-master-main/
 ├── pom.xml, mvnw, mvnw.cmd          # Maven e wrapper
 ├── docs/AI_LOG.md                   # registro do uso de IA
 ├── docs/TESTES_API.md               # roteiro de testes de validação e códigos HTTP
-├── mock/dados-mock.json             # dados simulados (7 lotes: normais, FIFO violado, vencido)
+├── docs/AULA08_INTEGRACAO.md         # roteiro da integração ponta a ponta (Aula 08)
+├── mock/dados-mock.json             # dados simulados antigos (Sprint 1; não lidos pela aplicação)
+├── mock/simulador.ps1               # simulador do almoxarifado: usa a API real em segundo plano (Aula 08)
 ├── src/
 │   ├── main/java/br/com/cristalmaster/
 │   │   ├── CristalmasterApplication.java   # ponto de entrada (sobe a API)
 │   │   ├── ControleDemo.java               # menu de demonstração no terminal
+│   │   ├── config/                         # CorsConfig (libera a tela em outra origem)
 │   │   ├── controllers/                    # rotas REST
 │   │   ├── dtos/                           # payloads (esquemas de validação)
 │   │   ├── exceptions/                     # erros -> códigos HTTP (400, 404, 422)
 │   │   ├── models/                         # entidades JPA (tabelas)
 │   │   ├── repositories/                   # acesso ao banco
 │   │   └── services/                       # FifoService, EstoqueService e teste manual
-│   ├── main/resources/application.properties   # conexão com o MySQL
+│   ├── main/resources/application.properties   # conexão com o MySQL (senha do banco da apresentação)
+│   ├── main/resources/application-xampp.properties   # perfil "xampp": root sem senha
 │   ├── main/resources/static/                   # tela operacional (PWA): index.html, css/, js/, sw.js, manifest, icons/
 │   └── test/java/.../CristalmasterApplicationTests.java
 └── backend/                         # resquício de um projeto Node.js (não faz parte da API Spring Boot)
@@ -167,11 +192,13 @@ cristal-master-main/
 **Pré-requisitos:** JDK 21 e um servidor MySQL em execução na porta 3306. Com o **XAMPP**, abra o painel de controle e clique em **Start** no módulo **MySQL** (o Apache não é necessário).
 
 1. Inicie o MySQL (no XAMPP: botão **Start** do módulo MySQL). O banco `cristalmaster` será criado sozinho na primeira execução.
-2. Confira usuário e senha em `src/main/resources/application.properties`. O arquivo está configurado para o banco da apresentação (usuário `root` com senha). O MySQL do XAMPP vem com o `root` **sem senha**; para testar nele, deixe `spring.datasource.password=` vazio.
+2. Confira usuário e senha em `src/main/resources/application.properties`. O arquivo está configurado para o banco da apresentação (usuário `root` com senha). O MySQL do XAMPP vem com o `root` **sem senha**: em casa ou na máquina de um colega, suba com o perfil `xampp` (passo 3), que zera a senha sem alterar o arquivo.
 3. Suba a API:
-   - Windows: `mvnw.cmd spring-boot:run`
+   - Windows: `.\mvnw.cmd spring-boot:run`
+   - Windows com XAMPP (root sem senha): `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`
    - Linux/macOS: `./mvnw spring-boot:run`
-4. Teste: abra `http://localhost:8080/health` no navegador. A tela do operador está em `http://localhost:8080/`.
+4. Teste: abra `http://localhost:8080/health` no navegador. Deve aparecer `Sistema OK - banco de dados conectado` (se aparecer "banco de dados está fora", confira o MySQL e a senha). A tela do operador está em `http://localhost:8080/`.
+   Para ver a tela reagindo ao vivo, rode em outro terminal: `powershell -ExecutionPolicy Bypass -File mock\simulador.ps1`.
 5. Cadastre e liste produtos (Postman ou `curl`):
    ```
    curl -X POST http://localhost:8080/produtos -H "Content-Type: application/json" -d "{\"sku\":\"RES-01\",\"nome\":\"Resina Cristal\"}"
@@ -205,25 +232,32 @@ Se a porta 8080 estiver ocupada (`8080 already in use`), há outra instância ro
 - Tela mobile (PWA) com campo de lote, cartões verde/vermelho/amarelo e lista FIFO
 - Rota `GET /api/fifo/proximos` para indicar o lote certo antes da retirada
 
+**Aula 08: Integração ponta a ponta (Checkpoint 2)** ✅
+- Tela atualizando sozinha (polling), CORS, estados de carregamento e de erro de comunicação
+- Rota `GET /api/movimentacoes` e seção "Movimentações ao vivo"
+- Simulador em PowerShell rodando em segundo plano pela API real
+- `/health` testando o banco de verdade (200/503) e perfil `xampp`
+
 ## Limitações conhecidas
 
-- O `/health` e o `/api/exemplo` devolvem texto fixo; o `/health` **não testa** a conexão com o banco.
-- O `dados-mock.json` não é lido pela aplicação e está no formato antigo (campos `produto` e `situacao`, fileiras repetidas). Os lotes são cadastrados via `POST /api/lotes`.
+- O `/api/exemplo` devolve texto fixo.
+- O `dados-mock.json` não é lido pela aplicação e está no formato antigo (campos `produto` e `situacao`, fileiras repetidas). Os lotes são cadastrados via `POST /api/lotes` (`docs/carregar-demo.ps1` e `mock/simulador.ps1`).
+- A tela consulta a API a cada 3 s (polling). Com `spring.jpa.show-sql=true`, o console mostra muito SQL durante a demonstração.
+- O simulador cria lotes novos a cada execução; para começar do zero, apague o banco `cristalmaster` (ele é recriado sozinho).
 - Produto e movimentação ainda não têm chaves estrangeiras; `Perfil` não é usado; não há registro do operador.
 - Só há entrada de lote por cadastro; ainda não existe rota de entrada de saldo em lote existente nem de ajuste.
 - O `ControleDemo` falha se for digitado texto no lugar de um número no menu.
 - Não há autenticação.
-- A tela foi testada com a API simulada (17 verificações automáticas), mas ainda não em navegador/celular reais; a câmera exige HTTPS ou `localhost` e só funciona onde há `BarcodeDetector` (Chrome/Android).
+- A tela foi testada com a API simulada (17 verificações automáticas na Aula 07 e 4 cenários de integração na Aula 08), mas ainda precisa da validação em navegador/celular reais; a câmera exige HTTPS ou `localhost` e só funciona onde há `BarcodeDetector` (Chrome/Android).
 - A tela identifica o tipo de bloqueio pelo texto da mensagem da API; se as mensagens do `EstoqueService` mudarem, ajustar o `app.js`.
 
 ## Próximos passos
 
-1. Fazer o `/health` testar a conexão com o banco.
-2. Ler o mock industrial pela aplicação (ajustando-o ao novo formato de lote).
-3. Relacionar as entidades (lote → produto, movimentação → lote) e registrar o operador.
-4. Endpoint que informe **qual lote e fileira devem sair primeiro** antes da saída.
-5. Testar a câmera em um celular real (HTTPS) e ajustar a usabilidade.
-6. Painel com histórico das tentativas bloqueadas.
+1. Relacionar as entidades (lote → produto, movimentação → lote) e registrar o operador.
+2. A API devolver um código de erro (ex.: `FIFO_VIOLADO`) além do texto, para a tela não depender da frase.
+3. Testar a câmera em um celular real (HTTPS) e ajustar a usabilidade.
+4. Histórico completo das movimentações com filtro (hoje a tela mostra as 15 últimas).
+5. Trocar o polling por atualização em tempo real (SSE/WebSocket), se necessário.
 
 ## Registro de uso de IA
 

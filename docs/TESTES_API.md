@@ -77,6 +77,17 @@ Esperado: `HTTP 422`. Nos dois primeiros, o corpo lista os campos com problema.
 Chamar POST "$u/api/saidas" '{"codigoQr":"LOT999","quantidade":10}'
 ```
 
+## 7. Integração (Aula 08): health, movimentações e CORS
+
+```powershell
+Chamar GET "$u/health"                          # 200 "Sistema OK - banco de dados conectado" (503 se o MySQL estiver fora)
+Chamar GET "$u/api/movimentacoes?limite=5"      # 200, últimas movimentações (as tentativas bloqueadas do teste 4 aparecem aqui)
+curl.exe -i -X OPTIONS "$u/api/saidas" -H "Origin: http://localhost:5500" -H "Access-Control-Request-Method: POST"
+```
+Esperado no `curl.exe`: a resposta traz `Access-Control-Allow-Origin: http://localhost:5500` (CORS liberado para a tela aberta pelo Live Server).
+
+Teste do erro de banco: com a API no ar, pare o MySQL no XAMPP e abra `http://localhost:8080/health` (503 com o motivo) e a tela (faixa vermelha avisando do erro). Ligue o MySQL de novo: tudo volta sozinho.
+
 ## Resumo dos códigos
 
 | Código | Quando |
@@ -86,6 +97,7 @@ Chamar POST "$u/api/saidas" '{"codigoQr":"LOT999","quantidade":10}'
 | 400 | Regra de negócio violada (FIFO, validade, saldo, fileira ocupada, código repetido) |
 | 404 | Lote não encontrado |
 | 422 | Payload fora do esquema (campo ausente/vazio/negativo, tipo ou data errados, JSON quebrado) |
+| 503 | `/health`: API no ar, mas o banco de dados não responde |
 
 Para conferir as tentativas bloqueadas no banco:
 ```powershell

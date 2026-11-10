@@ -1,0 +1,90 @@
+/* Tela operacional do almoxarifado: leitura a 2 metros, alto contraste.
+   Verde, vermelho e amarelo são reservados para o ESTADO do lote; o resto da tela é neutro. */
+:root {
+  --tinta: #111c24;
+  --papel: #f1f2ee;
+  --linha: #cfd4d6;
+  --marinha: #0d2b3e;
+  --verde: #16763a;
+  --vermelho: #c62828;
+  --amarelo: #ffb300;
+  --cinza: #4f5b63;
+  --foco: #1a73e8;
+  /* Bahnschrift (Windows) lembra a sinalização industrial DIN; as demais são reservas. */
+  --fonte: "Bahnschrift", "DIN Alternate", "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+html { font-size: 18px; }
+@media (min-width: 700px) { html { font-size: 20px; } }
+body { margin: 0; background: var(--papel); color: var(--tinta); font-family: var(--fonte); line-height: 1.3; }
+button { font: inherit; cursor: pointer; }
+:focus-visible { outline: 4px solid var(--foco); outline-offset: 2px; }
+
+.topo { display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  background: var(--marinha); color: #fff; padding: calc(.9rem + env(safe-area-inset-top)) 1rem .9rem; }
+.topo h1 { margin: 0; font-size: 1.35rem; font-weight: 700; }
+.topo h1 small { display: block; font-size: .85rem; font-weight: 400; color: #b9cddb; }
+.conexao { display: flex; align-items: center; gap: .45rem; font-size: .9rem; font-weight: 600; }
+.conexao::before { content: ""; width: .9rem; height: .9rem; border-radius: 50%; background: var(--amarelo); }
+.conexao.on::before { background: #4cd27a; }
+.conexao.off::before { background: #ff6b6b; }
+
+main { max-width: 46rem; margin: 0 auto; }
+
+.conferir { display: grid; gap: .6rem; padding: 1.2rem 1rem 1.4rem; }
+label { font-size: 1rem; font-weight: 600; color: var(--cinza); }
+input { width: 100%; min-width: 0; height: 4rem; padding: 0 1rem; font: inherit; font-size: 1.9rem; font-weight: 700;
+  color: var(--tinta); background: #fff; border: 3px solid var(--marinha); border-radius: .4rem; }
+input::placeholder { color: #98a3aa; font-weight: 400; }
+.linha { display: flex; gap: .6rem; }
+
+.primario { height: 4.6rem; margin-top: .4rem; border: 0; border-radius: .4rem;
+  background: var(--marinha); color: #fff; font-size: 1.7rem; font-weight: 700; }
+.primario:disabled { opacity: .6; cursor: wait; }
+.secundario { height: 4rem; padding: 0 1.1rem; white-space: nowrap; border: 3px solid var(--marinha); border-radius: .4rem;
+  background: #fff; color: var(--marinha); font-size: 1.2rem; font-weight: 700; }
+
+/* Resultado: faixa de largura total, é o elemento mais forte da tela. */
+.resultado { display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: center; padding: 1.6rem 1rem; }
+.resultado .simbolo { font-size: 4.5rem; line-height: 1; font-weight: 700; }
+.resultado .titulo { margin: 0; font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.resultado .detalhe { margin: .45rem 0 0; font-size: 1.35rem; }
+.resultado .esperado { margin: .45rem 0 0; font-size: 2.6rem; font-weight: 700; line-height: 1.05; }
+.resultado.ok { background: var(--verde); color: #fff; }
+.resultado.bloqueio { background: var(--vermelho); color: #fff; animation: pulso 1.4s ease-in-out infinite; }
+.resultado.alerta { background: var(--amarelo); color: var(--tinta); }
+@keyframes pulso {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(255, 255, 255, 0); }
+  50% { box-shadow: inset 0 0 0 .6rem rgba(255, 255, 255, .45); }
+}
+@media (prefers-reduced-motion: reduce) { .resultado.bloqueio { animation: none; } }
+
+.secao { padding: 1.4rem 1rem 0; }
+.secao h2 { margin: 0 0 .5rem; font-size: 1.35rem; }
+.vazio { margin: .6rem 0; color: var(--cinza); font-size: 1.1rem; }
+
+.linha-lote { display: grid; grid-template-columns: 1fr auto; gap: .15rem 1rem; align-items: center; width: 100%;
+  padding: .85rem 0; text-align: left; color: inherit; background: none; border: 0; border-top: 2px solid var(--linha); }
+.linha-lote .produto { font-size: 1.1rem; font-weight: 600; color: var(--cinza); }
+.linha-lote .codigo { font-size: 2.4rem; font-weight: 700; line-height: 1.05; }
+.linha-lote .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; font-size: 1.1rem; }
+/* Fita amarela como a que marca a fileira no chão. */
+.fita { padding: .15rem .8rem; background: var(--amarelo); color: #111; font-size: 1.8rem; font-weight: 700;
+  border-radius: .2rem; border-left: .5rem solid #111; }
+
+.lista { margin: 0; padding: 0; list-style: none; }
+.lista .linha-lote .codigo { font-size: 1.5rem; }
+.lista .fita { font-size: 1.2rem; }
+.selo { justify-self: start; padding: .1rem .6rem; font-size: .95rem; font-weight: 700; border-radius: .2rem; }
+.selo.proximo { background: var(--verde); color: #fff; }
+.selo.vencido { background: var(--amarelo); color: #111; }
+.selo.esgotado { background: #d9dedf; color: var(--cinza); }
+
+.rodape { display: flex; justify-content: space-between; align-items: center; gap: 1rem; max-width: 46rem;
+  margin: 0 auto; padding: 1.6rem 1rem calc(2rem + env(safe-area-inset-bottom)); color: var(--cinza); font-size: 1rem; }
+
+dialog { width: min(32rem, 94vw); padding: 0; border: 0; border-radius: .4rem; overflow: hidden; background: #fff; }
+dialog::backdrop { background: rgba(0, 0, 0, .75); }
+dialog video { display: block; width: 100%; background: #000; }
+dialog p { margin: 1rem; font-size: 1.1rem; }
+dialog button { margin: 0 1rem 1rem; }

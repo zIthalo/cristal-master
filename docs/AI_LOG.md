@@ -680,3 +680,296 @@ Registro honesto: **a IA não executou o projeto** (sem Maven/MySQL no ambiente 
 **Ajuste feito na documentação:** identificado que o roteiro da API e o script de demonstração usam as mesmas fileiras (F01 a F03), o que geraria erro 400 "fileira ocupada" se misturados. `docs/TESTES_API.md` passou a ter a seção "Antes de começar" (banco limpo, como apagar o banco pelo `mysql.exe` do XAMPP, dois PowerShell) e o comando de conferência das movimentações. Entrega: `cristalmaster-docs.zip` (`docs/AI_LOG.md` e `docs/TESTES_API.md`).
 
 ---
+
+## Prompt 24 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(orientações da Aula 08 coladas: Integração Ponta a Ponta e Checkpoint 2; consumo da API pelo frontend com `fetch`/`axios` trocando dados fixos por `GET`/`POST`; CORS no backend; indicação de carregamento e de erro de comunicação; teste do fluxo completo com o script de simulação/mock rodando em segundo plano; fechamento do Sprint 2 no `AI_LOG.md` com os prompts das Aulas 05 a 08 e os erros/alucinações da IA na integração; exemplos de prompts para CORS em FastAPI/Express e para chamar a API em JavaScript/React/Streamlit)*
+>
+> preciso aprontar esta tarefa. tenho o projeto em andamento
+
+**Resposta resumida:** nenhum arquivo tinha sido anexado. A IA pediu o projeto em `.zip` e a stack (backend, frontend, simulador), porque os prompts modelo da aula pressupõem FastAPI/Express.
+
+---
+
+## Prompt 25 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(print do Explorer do VS Code com a pasta `cristal-master`)*
+
+**Resposta resumida:** a IA identificou Spring Boot/Maven (`pom.xml`, `mvnw`, `.mvn`), pediu o `.zip` e já sugeriu uma classe `CorsConfig`. **Essa primeira sugestão estava incompleta:** liberava só `/api/**` com portas fixas em `allowedOrigins`, deixando `/produtos` e `/health` de fora. Corrigida na entrega (`/**` com `allowedOriginPatterns`).
+
+---
+
+## Prompt 26 (29/10/2026)
+
+**Prompt enviado:**
+
+> Pessa para min mostrar as pastas necessárias. vou lhe mandar o readmi
+
+**Resposta resumida:** lista de pastas a expandir e de arquivos a colar (controllers, `application.properties`, tela, mock, `AI_LOG.md`) e do que não precisava mandar (`.mvn`, `target`, `zpastaBackup`...).
+
+---
+
+## Prompt 27 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(conteúdo do `README.md`)*
+
+**Análise:** a tela já é servida pelo próprio Spring (mesma origem, o navegador nem aplica CORS) e já consome a API; o `dados-mock.json` não é lido por ninguém, então não serve como "mock rodando em segundo plano"; as tentativas bloqueadas são gravadas, mas nenhuma rota as devolve. Proposta: simulador pela API real, polling na tela e rota `GET /api/movimentacoes`.
+
+---
+
+## Prompt 28 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(conteúdo do `static/index.html`)*
+
+**Resposta resumida:** aproveitar o `#conexao` e o `#atualizado` já existentes; acrescentar a seção "Movimentações ao vivo", a faixa vermelha de erro e o "Carregando...". Pedido o `app.js`.
+
+---
+
+## Prompt 29 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(conteúdo do `application.properties`)*
+
+**Resposta resumida:** porta 8080 (padrão); senha `senai`; alerta de que `spring.jpa.show-sql=true` vai encher o console com o polling da tela e do simulador.
+
+---
+
+## Prompt 30 (29/10/2026)
+
+**Prompt enviado:**
+
+> Que mais você precisa
+
+**Resposta resumida:** lista em ordem de prioridade: `app.js`, controllers, `Movimentacao`, `MovimentacaoRepository`, `EstoqueService`, `AI_LOG.md`, `carregar-demo.ps1`.
+
+---
+
+## Prompt 31 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(conteúdo do `static/js/app.js`)*
+
+**Ações realizadas:** primeira versão do pacote da Aula 08: `app.js` (polling a cada 3 s, tempo-limite de 5 s, "Carregando...", faixa vermelha, dados esmaecidos sem sumir, "Movimentações ao vivo", destaque e avisos para o que chega), `index.html`, `css/integracao.css`, `config/CorsConfig.java`, `controllers/MovimentacaoController.java` e `mock/simulador.ps1`. O `app.js` foi executado contra uma API simulada (DOM mínimo em Node) em 4 cenários: primeira carga, dados novos, API caindo e API voltando.
+
+**Falha da IA:** o primeiro teste deu erro por causa do próprio teste (relógio falso disparando o temporizador errado), não do `app.js`; corrigido o teste e os 4 cenários passaram.
+
+---
+
+## Prompt 32 (29/10/2026)
+
+**Prompt enviado:**
+
+> Se precisar de mais arquivos para eu lhe mandar, me informe antes de eu anexar os arquivos no código
+
+**Resposta resumida:** pedidos o `docs/carregar-demo.ps1` (nomes dos campos do lote) e o `static/sw.js` (cache). **A IA tinha deduzido os nomes dos campos do `POST /api/lotes` no simulador sem confirmar**; pediu o script para conferir.
+
+---
+
+## Prompt 33 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(conteúdo do `docs/carregar-demo.ps1`)*
+
+**Ações realizadas:** campos confirmados (`codigoQr`, `produto`, `fileira`, `quantidade`, `dataEntrada`, `validade`); produtos do simulador trocados pelos da demo (Resina Cristal, Aditivo Azul, Aditivo Vermelho).
+
+**Erro da IA corrigido na revisão:** no `simulador.ps1`, o filtro para achar um lote "fora do FIFO" usava `$_` dentro de outro `Where-Object` (`$_.produto -eq $_.produto`), comparando o lote com ele mesmo (sempre verdadeiro). Removido.
+
+---
+
+## Prompt 34 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(conteúdo do `static/sw.js`)*
+
+**Resposta resumida:** o service worker já busca da rede primeiro e nunca guarda `/api/` em cache, então não atrapalha a tela nova. Incluído o `integracao.css` no cache de reserva (versão `v2`). Entrega: `aula08-integracao.zip`.
+
+---
+
+## Prompt 35 (29/10/2026)
+
+**Prompt enviado:**
+
+> onde eu acho repositories
+
+**Resposta resumida:** `src/main/java/br/com/cristalmaster/repositories/` (ou Ctrl + P no VS Code).
+
+---
+
+## Prompt 36 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(print da pasta `repositories` com `LoteRepository`, `MovimentacaoRepository` e `ProdutoRepository`)*
+
+**Resposta resumida:** o `MovimentacaoRepository` já existia; orientado a **não** copiar o do pacote.
+
+---
+
+## Prompt 37 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(conteúdo do `MovimentacaoRepository.java`)*
+
+**Resposta resumida:** estende `JpaRepository<Movimentacao, Long>`, então o `findAll(Pageable)` usado pelo `MovimentacaoController` já existe. Tabela de onde copiar cada arquivo do pacote.
+
+---
+
+## Prompt 38 (29/10/2026)
+
+**Prompt enviado:**
+
+> Todo promp que voce recebeu e que voce receberá, voce deve preencher o arqi AI_LOG.md
+
+**Regra registrada:** todo prompt da conversa passa a ser registrado no `docs/AI_LOG.md`. Nesta conversa os prompts foram reunidos numa tabela à parte; na entrega final (Prompt 42) foram convertidos para este formato (Prompts 24 a 42).
+
+---
+
+## Prompt 39 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(print da tela parada em "Conectando", listas vazias e "Sem atualização")* Abri a tela do front end mas o banco de dados não está se conectando embora eu tenha ativado o xampp. também não está aparecendo a atualização quando pressiono o botão atualizar. Verifique, revise e corrija.
+
+**Erro real de execução (Aula 08):**
+
+- **Sintoma:** tela parada em "Conectando", sem "Carregando...", sem faixa de erro, e o botão Atualizar sem efeito.
+- **Diagnóstico pela tela:** se o `app.js` tivesse rodado, o topo mudaria para "Servidor online/offline". Conclusão: o JavaScript não executou (arquivo não aplicado, fora de `static/js/` ou versão antiga).
+- **Causa provável do banco:** o `application.properties` usa a senha `senai` (banco da apresentação) e o MySQL do XAMPP vem com o `root` sem senha, então o Spring não consegue conectar (`Access denied`).
+- **Falha da IA:** a primeira entrega falhava **em silêncio** quando o `app.js` não carregava. Corrigido: o `index.html` passou a mostrar em vermelho quando o `app.js` não carrega ou dá erro; o `app.js` diferencia erro 500 (provável banco) de API desligada; cache do service worker `v3`.
+
+---
+
+## Prompt 40 (29/10/2026)
+
+**Prompt enviado:**
+
+> em que pasta fica o spring boot
+
+**Resposta resumida:** o Spring Boot não é uma pasta à parte: a própria `cristal-master` (com o `pom.xml`) é o projeto. Classe principal `CristalmasterApplication.java`; subir com `.\mvnw.cmd spring-boot:run` ou pelo botão Run. A pasta `backend/` é resto do projeto Node antigo.
+
+---
+
+## Prompt 41 (29/10/2026)
+
+**Prompt enviado:**
+
+> retorne todos os arquivos em suas respectivas pastas em um arquivo .zip para colocarmos na máquina de outro parceiro de trabalho
+
+**Resposta resumida:** a IA só tinha os arquivos colados na conversa, então entregou `cristal-master-aula08.zip` com os arquivos da Aula 08 nas pastas certas e avisou que **não era o projeto completo** (faltavam `pom.xml`, models, services, CSS, ícones). Orientado a compactar a pasta inteira no próprio computador ou usar o Git.
+
+---
+
+## Prompt 42 (29/10/2026)
+
+**Prompt enviado:**
+
+> *(anexo: `CristalMaster_29-10.zip`, projeto completo)* Pesso que analize novamente todos os arquivos e me retorne com a tarefa atendida para hoje que lhe mandei
+
+**Análise do projeto completo:** nenhum arquivo da Aula 08 tinha sido aplicado ainda (`app.js` e `index.html` da Aula 07, sem `CorsConfig`, `MovimentacaoController`, `integracao.css` e simulador). Conferido no código real: as mensagens do `EstoqueService` batem com o que a tela espera; o `cadastrarLote` aceita lote já vencido (o cenário "lote vencido" do simulador funciona); o `Movimentacao` tem os campos que a rota nova devolve.
+
+**Ações realizadas:**
+
+- Aplicados no projeto: `CorsConfig`, `MovimentacaoController`, `app.js`, `index.html`, `integracao.css`, `sw.js`, `mock/simulador.ps1`.
+- `HealthController`: `GET /health` passou a **testar a conexão com o banco** (200 ou 503 com o motivo). Era requisito do Sprint 1 e o próximo passo nº 1 do README.
+- `application-xampp.properties`: perfil `xampp` (root sem senha) para rodar em casa ou na máquina do parceiro sem alterar a senha da apresentação.
+- `simulador.ps1`: números negativos passados entre parênteses (`NovoLote (-200) (-1)`).
+- `README.md`, `docs/TESTES_API.md` (teste 7: health, movimentações, CORS) e `docs/AULA08_INTEGRACAO.md` (roteiro e problemas comuns) atualizados.
+- Consolidação do Sprint 2 escrita abaixo.
+
+**Verificação:** classes Java novas compiladas com `javac` contra versões mínimas das classes do Spring (sem erros); `app.js` retestado nos 4 cenários. **Não executado no ambiente da IA:** o Maven Central é bloqueado ali (HTTP 403), não há MySQL nem PowerShell. A compilação completa, o MySQL e o simulador precisam ser validados pela equipe no roteiro de `docs/AULA08_INTEGRACAO.md`.
+
+**Entrega:** `CristalMaster_29-10_aula08.zip` (projeto completo, mesma estrutura do enviado).
+
+---
+
+## Prompt 43 (29/10/2026)
+
+**Prompt enviado:**
+
+> Temos um problema. foi feito estilos no css e não esta pegando, consegues revisar
+
+**Diagnóstico:** os dois CSS do projeto enviado (`estilo.css` e `integracao.css`) estão com a sintaxe correta (chaves e comentários fechados); os estilos novos feitos depois não foram enviados. A causa mais provável é de entrega dos arquivos, não do CSS:
+
+- O Spring Boot serve a tela a partir da **cópia** em `target/classes/static`, feita quando a API sobe. Editar `src/main/resources/static/css/...` com a API rodando não muda o que o navegador recebe até reiniciar.
+- O navegador e o service worker podiam reaproveitar o CSS antigo do cache.
+
+**Correções:**
+
+- `application.properties`: `spring.web.resources.static-locations=file:src/main/resources/static/,classpath:/static/` (a tela passa a ser lida direto da pasta do projeto: alterou o CSS, basta F5) e `spring.web.resources.cache.cachecontrol.no-cache=true` (o navegador sempre confere se o arquivo mudou).
+- `sw.js`: busca com `cache: 'no-cache'` e versão `v4`.
+- Alerta: o `integracao.css` é carregado **depois** do `estilo.css`; regra com o mesmo seletor nos dois arquivos vale a do `integracao.css`.
+
+**Não testado no ambiente da IA** (sem Spring/navegador); validar reiniciando a API uma vez e recarregando a página.
+
+---
+
+# Consolidação do Sprint 2 (Aulas 05 a 08)
+
+## Objetivo
+
+Sair da fundação técnica (Sprint 1) para um sistema que funciona de ponta a ponta: regra FIFO de verdade na API, validação com códigos HTTP corretos, tela do operador e, no fechamento, a tela reagindo ao simulador pela API e pelo banco.
+
+## Principais prompts do Sprint 2
+
+| Aula | Prompt (resumo) | Resultado |
+|------|-----------------|-----------|
+| 05 | "Como implementar uma primeira versão da regra FIFO para validar se o lote selecionado corresponde ao lote esperado?" (Parte 1) e Prompts 6 a 16 (envio do projeto em levas, comentários, como rodar, criação automática do banco, senha `senai`, apresentação, caso de erro do `ControleDemo`) | `FifoService.validarSaida` com casos OK, VIOLADO e erro; código comentado; banco criado sozinho (`createDatabaseIfNotExist=true`); código vazio tratado como inválido |
+| 06 | Prompt 17: texto da Aula 06 (validação, payload, esquemas, códigos HTTP) "com base no programa que estamos desenvolvendo" | Bean Validation (`LoteRequest`, `SaidaRequest`), `ApiExceptionHandler` (400/404/422), `EstoqueService` com FIFO, validade e saldo, `TENTATIVA_BLOQUEADA`, `docs/TESTES_API.md` |
+| 07 | Prompt 18: orientações da Aula 07 (interface para leitura a 2 metros, verde/vermelho/amarelo, consumir a API); Prompts 19 a 23 (AI_LOG em `docs/`, como rodar, erro de JDK, testes) | Tela PWA em HTML/CSS/JS servida pelo Spring, `GET /api/fifo/proximos`, leitura de QR, `carregar-demo.ps1` |
+| 08 | Prompts 24 a 42: orientações da Aula 08 e envio dos arquivos; tela parada em "Conectando"; projeto completo | Polling, CORS, carregando/erro, `GET /api/movimentacoes`, "Movimentações ao vivo", simulador, `/health` com teste do banco, perfil `xampp` |
+
+## Onde a IA errou ou alucinou na integração front ↔ back
+
+| # | Aula | Erro da IA | Como foi resolvido |
+|---|------|-----------|--------------------|
+| 1 | 08 | **Stack errada nos prompts modelo:** os exemplos da aula falam em FastAPI/Express e portas 3000/5173; nosso backend é Spring Boot na 8080 com a tela na mesma origem | Explicada a stack; CORS feito em Spring (`WebMvcConfigurer`) |
+| 2 | 08 | **CORS incompleto:** a primeira `CorsConfig` sugerida liberava só `/api/**` e portas fixas | `addMapping("/**")` com `allowedOriginPatterns("http://localhost:*", "http://127.0.0.1:*")` |
+| 3 | 08 | **Campos deduzidos sem confirmar:** o simulador foi escrito com os nomes dos campos do `POST /api/lotes` "chutados" | Conferidos com o `carregar-demo.ps1` e o `LoteRequest` antes de aplicar |
+| 4 | 08 | **Bug de PowerShell:** `$_` aninhado em dois `Where-Object` no simulador (filtro sempre verdadeiro) | Filtro reescrito na revisão |
+| 5 | 08 | **Falha silenciosa:** quando o `app.js` não rodava, a tela ficava parada em "Conectando" sem explicar nada | Diagnóstico em vermelho no `index.html`; mensagens diferentes para API fora, erro 500 (banco) e rota inexistente |
+| 6 | 08 | **Mock que não era mock:** o `dados-mock.json` do Sprint 1 não é lido pela aplicação e está em formato antigo | Simulador pela API real (`mock/simulador.ps1`) |
+| 7 | 07 | **Tela dependente do texto do erro:** a tela identifica "FIFO violado" e "Lote vencido" pelo começo da mensagem da API | Mantido e documentado; próximo passo: a API devolver um código (`FIFO_VIOLADO`) |
+| 8 | 07 | **Testes só com API falsa:** as 17 verificações da Aula 07 e os 4 cenários da Aula 08 usaram API simulada; a IA nunca rodou o Spring com MySQL | Validação real pela equipe (roteiro em `docs/AULA08_INTEGRACAO.md`) |
+| 9 | 06 | **Dependência não confirmada:** o nome `spring-boot-starter-validation` no Boot 4 foi sugerido sem compilar | Confirmado quando a equipe compilou (Prompt 22) |
+| 10 | 05/06 | **Afirmação falsa sobre o `pom.xml`** (tag `<n>`), feita no Sprint 1 e retratada no Prompt 6 | Retratação registrada |
+
+## O que a equipe arrumou "no braço"
+
+- **JDK errado na compilação** (Prompt 21): `release version 21 not supported`; a equipe apontou o `JAVA_HOME` para um JDK 21+ e o projeto compilou (Prompt 22).
+- **Senha do MySQL** (Prompt 39): o banco não conectava no XAMPP por causa da senha `senai`; agora há o perfil `xampp`.
+- **CSS alterado que não aparecia** (Prompt 43): a tela era servida da cópia em `target/` e o navegador usava cache; agora é lida direto de `src/` e sem cache.
+- **Arquivos da Aula 08 no lugar certo** (Prompts 35 a 37 e 42): conferência do `MovimentacaoRepository` existente e aplicação dos arquivos no projeto completo.
+
+## Validação real a registrar pela equipe
+
+- [ ] API sobe e `/health` responde `Sistema OK - banco de dados conectado`
+- [ ] Tela em `http://localhost:8080/` carrega e atualiza sozinha
+- [ ] Simulador rodando e a tela mostrando entradas, saídas e bloqueios ao vivo
+- [ ] API parada → faixa vermelha; API de volta → faixa some
+- [ ] CORS testado pelo Live Server ou pelo `curl.exe` do roteiro
+- Problemas encontrados ao rodar: ______
+
+## Entregas do Sprint 2
+
+- [x] Regra FIFO na API com validade e saldo, bloqueio e registro da tentativa
+- [x] Validação de payload e códigos HTTP (200, 201, 400, 404, 422, 503)
+- [x] Tela do operador (PWA) consumindo a API, sem dados fixos
+- [x] CORS, carregando e erro de comunicação
+- [x] Simulador em segundo plano e tela reagindo ao vivo
+- [x] `AI_LOG.md` com os prompts do Sprint 2 e os erros da IA
+- [ ] Validação em execução real (pendente da equipe)
+
+---

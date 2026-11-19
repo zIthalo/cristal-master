@@ -195,7 +195,7 @@ cristal-master-main/
 
 ### O que precisa estar instalado
 
-- **JDK 21 ou mais novo.** Não é preciso instalar o Maven (o projeto traz o `mvnw.cmd`).
+- **JDK 17 ou mais novo (17, 21, 25...).** Não é preciso instalar o Maven (o projeto traz o `mvnw.cmd`).
 - **MySQL ligado na porta 3306.** No XAMPP, abra o painel e clique em **Start** no módulo **MySQL** (o Apache não é necessário).
 - Não é preciso criar o banco nem rodar SQL: o banco e as tabelas são criados sozinhos (veja "Entendendo dois termos").
 
@@ -206,9 +206,9 @@ cristal-master-main/
    ```powershell
    .\mvnw.cmd -v
    ```
-   A linha `Java version` precisa mostrar **21 ou mais**. Se mostrar menos, ou se o build parar com `release version 21 not supported`, o `JAVA_HOME` aponta para um Java antigo (comum nos computadores da faculdade), mesmo que `java -version` mostre outro. Corrija só nesta janela e confira de novo:
+   A linha `Java version` precisa mostrar **17 ou mais**. Se mostrar menos, ou se o build parar com `release version 17 not supported`, o `JAVA_HOME` aponta para um Java antigo (comum nos computadores da faculdade), mesmo que `java -version` mostre outro. Corrija só nesta janela e confira de novo:
    ```powershell
-   $env:JAVA_HOME = "C:\Program Files\Java\jdk-21"   # ajuste para a pasta do seu JDK
+   $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"   # ajuste para a pasta do seu JDK
    .\mvnw.cmd -v
    ```
 3. **Informe a senha do MySQL.** Ela não fica escrita em arquivo do projeto. Escolha uma opção:
@@ -242,7 +242,7 @@ cristal-master-main/
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| `release version 21 not supported` | `JAVA_HOME` com Java antigo | Passo 2 |
+| `release version 17 not supported` | `JAVA_HOME` com Java antigo | Passo 2 |
 | `Unable to determine Dialect without JDBC metadata` | A API não conectou no MySQL (a causa real está mais acima no log, na linha do `HikariPool`) | Confirme que o MySQL está ligado e refaça o passo 3 |
 | `Access denied for user 'root'` | Senha errada | Refaça o passo 3 |
 | `8080 already in use` | Outra instância da API rodando | Encerre-a (Ctrl + C na outra janela) |
@@ -253,7 +253,7 @@ cristal-master-main/
 
 A câmera do celular só lê QR Code em **HTTPS** (ou em `localhost`). Por isso existe o perfil `https` e um iniciador que faz tudo sozinho:
 
-1. Com o MySQL ligado, dê **duplo clique em `iniciar.bat`** (ou rode `powershell -ExecutionPolicy Bypass -File iniciar.ps1`). Na primeira vez ele confere o Java 21+, gera um certificado local em `certs\` (fora do Git), compila o programa (`target\cristalmaster-0.0.1-SNAPSHOT.jar`) e sobe a API em HTTPS.
+1. Com o MySQL ligado, dê **duplo clique em `iniciar.bat`** (ou rode `powershell -ExecutionPolicy Bypass -File iniciar.ps1`). Na primeira vez ele confere o Java 17+, gera um certificado local em `certs\` (fora do Git), compila o programa (`target\cristalmaster-0.0.1-SNAPSHOT.jar`) e sobe a API em HTTPS.
 2. O terminal mostra o endereço para o celular, no formato `https://IP-DO-COMPUTADOR:8443/`. O celular precisa estar **na mesma rede Wi-Fi**. Se não abrir, libere a porta 8443 no firewall (o comando aparece no terminal; rode-o como Administrador).
 3. No celular, o navegador avisa que o certificado não é confiável (é autoassinado): toque em **Avançado** e continue. Depois permita o uso da câmera ao tocar em **Ler QR**.
 4. Para instalar como app: menu do navegador > **Adicionar à tela inicial**.

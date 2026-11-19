@@ -68,7 +68,7 @@ Simulador → API Spring Boot → MySQL → tela do operador, tudo ao vivo.
 |---|---|---|
 | A API não sobe; no terminal: `Access denied for user 'root'@'localhost' (using password: YES)` | MySQL com senha e `DB_SENHA` não definida (ou senha errada) | Definir `DB_SENHA` (ou `.env`) com a senha certa, ou usar o perfil `xampp` se o root não tem senha (passo 2) |
 | A API não sobe; `Communications link failure` | MySQL desligado | XAMPP → Start no MySQL |
-| `release version 21 not supported` | Maven rodando com JDK antigo | Apontar `JAVA_HOME` para o JDK 21+ (`.\mvnw.cmd -version`) |
+| `release version 17 not supported` | Maven rodando com JDK antigo | Apontar `JAVA_HOME` para o JDK 17+ (`.\mvnw.cmd -version`) |
 | `Port 8080 was already in use` | Outra instância da API aberta | Fechar o outro terminal ou encerrar o processo `java` |
 | Tela parada em "Conectando", botão Atualizar sem efeito | `app.js` antigo ou não carregado | Conferir `static/js/app.js`, reiniciar a API, Ctrl + Shift + R; o `index.html` novo mostra o motivo em vermelho |
 | Alterei o CSS/JS e a tela não muda | API servindo a cópia antiga de `target/` ou cache do navegador | Reiniciar a API **uma vez** depois de aplicar o `application.properties` novo; a partir daí basta F5 (se não mudar, Ctrl + Shift + R). Se o seletor também existe no `integracao.css`, vale o dele (é carregado depois) |

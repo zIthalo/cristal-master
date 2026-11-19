@@ -4,14 +4,14 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-# 1) Java 21+
+# 1) Java 17+
 $javaExe = 'java'
 if ($env:JAVA_HOME) { $javaExe = Join-Path $env:JAVA_HOME 'bin\java.exe' }
 try { $saida = (& $javaExe -version 2>&1 | Out-String) } catch { $saida = '' }
 if ($saida -match 'version "(\d+)') { $versao = [int]$Matches[1] } else { $versao = 0 }
-if ($versao -lt 21) {
-  Write-Host "Java 21 ou mais novo e necessario (encontrado: $versao). Instale o JDK 21+ ou ajuste o JAVA_HOME:" -ForegroundColor Red
-  Write-Host '  $env:JAVA_HOME = "C:\Program Files\Java\jdk-21"'
+if ($versao -lt 17) {
+  Write-Host "Java 17 ou mais novo e necessario (encontrado: $versao). Instale o JDK 17+ ou ajuste o JAVA_HOME:" -ForegroundColor Red
+  Write-Host '  $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"'
   exit 1
 }
 

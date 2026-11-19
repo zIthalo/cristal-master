@@ -1042,3 +1042,17 @@ Entradas adicionadas ao final, sem alterar o histórico anterior. Contexto: a au
 **Verificação:** a sintaxe do `app.js` e o comando `keytool` foram testados no ambiente da IA. **Não executado:** build do `.jar`, `iniciar.ps1` (sem PowerShell), HTTPS com celular real, leitura de QR em iPhone e instalação como PWA com certificado autoassinado. Não foi criado `.exe` nem `.apk`.
 
 ---
+
+## Prompt 49 (19/11/2026)
+
+**Prompt enviado:**
+
+> é possível que este programa rode em mais versões do java que não sejam apenas a partir da 21? Gostaria que o programa rodasse em uma versão do java mais antiga para abranger mais tipos de usuário e para o programa rodar em mais computadores.
+
+**Análise:** o Spring Boot 4.x exige no mínimo o Java 17. O código só usa `record` (Java 16) nos DTOs e nenhum recurso exclusivo do Java 21 foi encontrado por busca no código. Java 11 ou 8 exigiriam voltar ao Spring Boot 2.7 (sem suporte desde 2023), migrar `jakarta.*` para `javax.*` e reescrever os `record`: não recomendado.
+
+**Ações realizadas:** `java.version` do `pom.xml` de 21 para 17; mínimo do `iniciar.ps1`, do README e do roteiro da Aula 08 atualizado para Java 17.
+
+**Não executado:** a compilação em JDK 17 (o ambiente da IA só tem o JRE 21, sem `javac`). A equipe deve validar com um JDK 17 real.
+
+---

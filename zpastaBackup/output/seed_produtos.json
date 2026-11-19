@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "sku": "RES-PP-001",
+    "nome": "Resina Polipropileno PP-H",
+    "unidade_medida": "KG"
+  },
+  {
+    "id": 2,
+    "sku": "RES-PE-002",
+    "nome": "Resina Polietileno PE-AD",
+    "unidade_medida": "KG"
+  },
+  {
+    "id": 3,
+    "sku": "RES-PVC-003",
+    "nome": "Resina PVC Suspensão",
+    "unidade_medida": "KG"
+  },
+  {
+    "id": 4,
+    "sku": "ADT-COL-004",
+    "nome": "Aditivo Colorante Master",
+    "unidade_medida": "KG"
+  },
+  {
+    "id": 5,
+    "sku": "ADT-EST-005",
+    "nome": "Aditivo Estabilizante UV",
+    "unidade_medida": "KG"
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "codigoQr": "LOT001",
+    "produto": "Resina Cristal",
+    "fileira": "F01",
+    "qtdInicial": 1000,
+    "qtdAtual": 1000,
+    "situacao": "NORMAL"
+  },
+  {
+    "codigoQr": "LOT002",
+    "produto": "Resina Cristal",
+    "fileira": "F01",
+    "qtdInicial": 1000,
+    "qtdAtual": 850,
+    "situacao": "NORMAL"
+  },
+  {
+    "codigoQr": "LOT003",
+    "produto": "Resina Cristal",
+    "fileira": "F02",
+    "qtdInicial": 800,
+    "qtdAtual": 600,
+    "situacao": "NORMAL"
+  },
+  {
+    "codigoQr": "LOT004",
+    "produto": "Aditivo Azul",
+    "fileira": "F03",
+    "qtdInicial": 500,
+    "qtdAtual": 500,
+    "situacao": "NORMAL"
+  },
+  {
+    "codigoQr": "LOT005",
+    "produto": "Aditivo Vermelho",
+    "fileira": "F04",
+    "qtdInicial": 300,
+    "qtdAtual": 200,
+    "situacao": "NORMAL"
+  },
+  {
+    "codigoQr": "LOT006",
+    "produto": "Resina Cristal",
+    "fileira": "F01",
+    "qtdInicial": 900,
+    "qtdAtual": 900,
+    "situacao": "FIFO_VIOLADO"
+  },
+  {
+    "codigoQr": "LOT007",
+    "produto": "Aditivo Azul",
+    "fileira": "F03",
+    "qtdInicial": 400,
+    "qtdAtual": 400,
+    "situacao": "LOTE_VENCIDO"
+  }
+]

@@ -317,7 +317,8 @@
   }
 
   // ---------- Leitura de QR Code pela câmera ----------
-  // Usa BarcodeDetector (Chrome/Android). Exige HTTPS ou localhost; sem isso, digite o código.
+  // Usa BarcodeDetector (Chrome/Android). Onde ele não existe (iPhone/Safari, Firefox), usa a biblioteca jsQR,
+  // se o arquivo js/jsQR.js estiver na pasta (veja o README). Exige HTTPS ou localhost; sem isso, digite o código.
   let fluxo = null;
   let lendo = false;
 
@@ -343,13 +344,26 @@
     video.srcObject = fluxo;
     $('dlg-qr').showModal();
     await video.play();
-    const detector = new BarcodeDetector({ formats: ['qr_code'] });
+    const detector = ('BarcodeDetector' in window) ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+    const tela = document.createElement('canvas');
+    const ctx = tela.getContext('2d', { willReadFrequently: true });
     lendo = true;
     while (lendo) {
       try {
-        const achados = await detector.detect(video);
-        if (achados.length) {
-          $('codigo').value = achados[0].rawValue.trim();
+        let texto = '';
+        if (detector) {
+          const achados = await detector.detect(video);
+          if (achados.length) texto = achados[0].rawValue;
+        } else if (video.videoWidth) {
+          tela.width = video.videoWidth;
+          tela.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, tela.width, tela.height);
+          const img = ctx.getImageData(0, 0, tela.width, tela.height);
+          const r = window.jsQR(img.data, img.width, img.height);
+          if (r) texto = r.data;
+        }
+        if (texto) {
+          $('codigo').value = texto.trim();
           pararCamera();
           $('quantidade').focus();
           return;
@@ -357,6 +371,11 @@
       } catch (e) { /* quadro ainda não disponível */ }
       await new Promise((ok) => setTimeout(ok, 250));
     }
+  }
+
+  function habilitarBotaoQr() {
+    $('btn-qr').hidden = false;
+    $('btn-qr').addEventListener('click', lerQr);
   }
 
   // ---------- Início ----------
@@ -368,8 +387,16 @@
   $('quantidade').addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmarSaida(); });
 
   if ('BarcodeDetector' in window) {
-    $('btn-qr').hidden = false;
-    $('btn-qr').addEventListener('click', lerQr);
+    habilitarBotaoQr();
+  } else {
+    // Sem BarcodeDetector: usa js/jsQR.js, se existir (conferido antes para não gerar o aviso de erro da tela).
+    fetch('js/jsQR.js', { method: 'HEAD' }).then((r) => {
+      if (!r.ok) return;
+      const sc = document.createElement('script');
+      sc.src = 'js/jsQR.js';
+      sc.onload = () => { if (window.jsQR) habilitarBotaoQr(); };
+      document.head.appendChild(sc);
+    }).catch(() => { /* sem leitura de QR: o operador digita o código */ });
   }
 
   // PWA: o service worker só funciona em HTTPS ou localhost.

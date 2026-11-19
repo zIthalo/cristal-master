@@ -40,8 +40,8 @@ Simulador → API Spring Boot → MySQL → tela do operador, tudo ao vivo.
 
 1. **MySQL ligado:** XAMPP → **Start** no módulo **MySQL** (fica verde, porta 3306).
 2. **API**, num PowerShell na pasta do projeto:
-   - Banco da apresentação (senha `senai`): `.\mvnw.cmd spring-boot:run`
-   - XAMPP com root sem senha: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`
+   - Banco com senha: defina antes `$env:DB_SENHA = "sua_senha"` (ou use o `.env`, veja o README) e rode `.\mvnw.cmd spring-boot:run`
+   - XAMPP com root sem senha: `.\mvnw.cmd spring-boot:run` (o perfil `xampp` também funciona: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`)
 
    Espere `Started CristalmasterApplication`. Dica: com o polling, `spring.jpa.show-sql=true` enche o console; deixe `false` durante a apresentação se quiser mostrar os logs.
 3. **Confira o banco:** `http://localhost:8080/health` → `Sistema OK - banco de dados conectado`.
@@ -66,7 +66,7 @@ Simulador → API Spring Boot → MySQL → tela do operador, tudo ao vivo.
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
-| A API não sobe; no terminal: `Access denied for user 'root'@'localhost' (using password: YES)` | XAMPP com root sem senha e o `application.properties` com `senai` | Subir com o perfil `xampp` (passo 2) |
+| A API não sobe; no terminal: `Access denied for user 'root'@'localhost' (using password: YES)` | MySQL com senha e `DB_SENHA` não definida (ou senha errada) | Definir `DB_SENHA` (ou `.env`) com a senha certa, ou usar o perfil `xampp` se o root não tem senha (passo 2) |
 | A API não sobe; `Communications link failure` | MySQL desligado | XAMPP → Start no MySQL |
 | `release version 21 not supported` | Maven rodando com JDK antigo | Apontar `JAVA_HOME` para o JDK 21+ (`.\mvnw.cmd -version`) |
 | `Port 8080 was already in use` | Outra instância da API aberta | Fechar o outro terminal ou encerrar o processo `java` |

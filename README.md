@@ -164,6 +164,9 @@ As tabelas ainda **não têm chaves estrangeiras** entre si (o lote guarda o pro
 ```
 cristal-master-main/
 ├── pom.xml, mvnw, mvnw.cmd          # Maven e wrapper
+├── iniciar.bat, iniciar.ps1         # inicia a API em HTTPS para uso no celular (câmera/QR)
+├── .env.example                     # modelo das variáveis locais (DB_USUARIO, DB_SENHA)
+├── docs/carregar-demo.ps1           # carrega 5 lotes de demonstração
 ├── docs/AI_LOG.md                   # registro do uso de IA
 ├── docs/TESTES_API.md               # roteiro de testes de validação e códigos HTTP
 ├── docs/AULA08_INTEGRACAO.md         # roteiro da integração ponta a ponta (Aula 08)
@@ -180,30 +183,87 @@ cristal-master-main/
 │   │   ├── models/                         # entidades JPA (tabelas)
 │   │   ├── repositories/                   # acesso ao banco
 │   │   └── services/                       # FifoService, EstoqueService e teste manual
-│   ├── main/resources/application.properties   # conexão com o MySQL (senha do banco da apresentação)
+│   ├── main/resources/application.properties   # conexão com o MySQL (senha vem de DB_SENHA / .env)
 │   ├── main/resources/application-xampp.properties   # perfil "xampp": root sem senha
 │   ├── main/resources/static/                   # tela operacional (PWA): index.html, css/, js/, sw.js, manifest, icons/
 │   └── test/java/.../CristalmasterApplicationTests.java
-└── backend/                         # resquício de um projeto Node.js (não faz parte da API Spring Boot)
 ```
 
 ## Como executar
 
-**Pré-requisitos:** JDK 21 e um servidor MySQL em execução na porta 3306. Com o **XAMPP**, abra o painel de controle e clique em **Start** no módulo **MySQL** (o Apache não é necessário).
+> Guia testado no Windows com PowerShell. No Linux/macOS troque `.\mvnw.cmd` por `./mvnw`.
 
-1. Inicie o MySQL (no XAMPP: botão **Start** do módulo MySQL). O banco `cristalmaster` será criado sozinho na primeira execução.
-2. Confira usuário e senha em `src/main/resources/application.properties`. O arquivo está configurado para o banco da apresentação (usuário `root` com senha). O MySQL do XAMPP vem com o `root` **sem senha**: em casa ou na máquina de um colega, suba com o perfil `xampp` (passo 3), que zera a senha sem alterar o arquivo.
-3. Suba a API:
-   - Windows: `.\mvnw.cmd spring-boot:run`
-   - Windows com XAMPP (root sem senha): `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`
-   - Linux/macOS: `./mvnw spring-boot:run`
-4. Teste: abra `http://localhost:8080/health` no navegador. Deve aparecer `Sistema OK - banco de dados conectado` (se aparecer "banco de dados está fora", confira o MySQL e a senha). A tela do operador está em `http://localhost:8080/`.
-   Para ver a tela reagindo ao vivo, rode em outro terminal: `powershell -ExecutionPolicy Bypass -File mock\simulador.ps1`.
-5. Cadastre e liste produtos (Postman ou `curl`):
+### O que precisa estar instalado
+
+- **JDK 21 ou mais novo.** Não é preciso instalar o Maven (o projeto traz o `mvnw.cmd`).
+- **MySQL ligado na porta 3306.** No XAMPP, abra o painel e clique em **Start** no módulo **MySQL** (o Apache não é necessário).
+- Não é preciso criar o banco nem rodar SQL: o banco e as tabelas são criados sozinhos (veja "Entendendo dois termos").
+
+### Passo a passo
+
+1. **Abra o PowerShell na pasta do projeto**, a que contém `pom.xml` e `mvnw.cmd` (no Explorer, clique na barra de endereço, digite `powershell` e Enter).
+2. **Confira o Java que o Maven vai usar:**
+   ```powershell
+   .\mvnw.cmd -v
+   ```
+   A linha `Java version` precisa mostrar **21 ou mais**. Se mostrar menos, ou se o build parar com `release version 21 not supported`, o `JAVA_HOME` aponta para um Java antigo (comum nos computadores da faculdade), mesmo que `java -version` mostre outro. Corrija só nesta janela e confira de novo:
+   ```powershell
+   $env:JAVA_HOME = "C:\Program Files\Java\jdk-21"   # ajuste para a pasta do seu JDK
+   .\mvnw.cmd -v
+   ```
+3. **Informe a senha do MySQL.** Ela não fica escrita em arquivo do projeto. Escolha uma opção:
+   - **XAMPP com `root` sem senha:** não precisa fazer nada.
+   - **Variável de ambiente** (vale só nesta janela): `$env:DB_SENHA = "sua_senha"`
+   - **Arquivo `.env`** (fica na sua máquina, não vai para o Git): `Copy-Item .env.example .env` e preencha `DB_SENHA`.
+   - O Spring Boot também aceita `$env:SPRING_DATASOURCE_PASSWORD = "sua_senha"`.
+4. **Suba a API:**
+   ```powershell
+   .\mvnw.cmd spring-boot:run
+   ```
+   (No PowerShell o `.\` na frente é obrigatório.) Espere a linha `Started CristalmasterApplication` e **não feche a janela**: Ctrl + C desliga a API. Na primeira vez o Maven baixa dependências e pode levar alguns minutos.
+5. **Confira no navegador:**
+   - `http://localhost:8080/health` deve mostrar `Sistema OK - banco de dados conectado`.
+   - `http://localhost:8080/` abre a tela do operador (vazia no início).
+6. **Carregue dados de demonstração.** Em **outra** janela do PowerShell, na mesma pasta, use uma das opções:
+   - Simulador (a tela reage ao vivo, com saídas e bloqueios FIFO): `powershell -ExecutionPolicy Bypass -File mock\simulador.ps1`
+   - Só 5 lotes iniciais (banco limpo): `powershell -ExecutionPolicy Bypass -File docs\carregar-demo.ps1`
+7. (Opcional) Cadastre e liste produtos com `curl`:
    ```
    curl -X POST http://localhost:8080/produtos -H "Content-Type: application/json" -d "{\"sku\":\"RES-01\",\"nome\":\"Resina Cristal\"}"
    curl http://localhost:8080/produtos
    ```
+
+### Entendendo dois termos
+
+- **"O banco será criado sozinho":** a URL de conexão tem `createDatabaseIfNotExist=true`, então o driver cria o banco `cristalmaster` na primeira conexão e o Hibernate cria as tabelas (`ddl-auto=update`).
+- **Perfil:** é um arquivo `application-<nome>.properties` ativado com `-Dspring-boot.run.profiles=<nome>`. O perfil `xampp` só força a senha vazia. Exemplo: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`. Com a senha já tratada no passo 3, ele raramente é necessário.
+
+### Problemas comuns
+
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| `release version 21 not supported` | `JAVA_HOME` com Java antigo | Passo 2 |
+| `Unable to determine Dialect without JDBC metadata` | A API não conectou no MySQL (a causa real está mais acima no log, na linha do `HikariPool`) | Confirme que o MySQL está ligado e refaça o passo 3 |
+| `Access denied for user 'root'` | Senha errada | Refaça o passo 3 |
+| `8080 already in use` | Outra instância da API rodando | Encerre-a (Ctrl + C na outra janela) |
+| Tela vazia | Banco sem dados | Passo 6 |
+| `mvnw.cmd não é reconhecido` | Terminal fora da pasta do projeto ou sem `.\` | Passos 1 e 4 |
+
+### Uso no celular, com leitura de QR Code (executável)
+
+A câmera do celular só lê QR Code em **HTTPS** (ou em `localhost`). Por isso existe o perfil `https` e um iniciador que faz tudo sozinho:
+
+1. Com o MySQL ligado, dê **duplo clique em `iniciar.bat`** (ou rode `powershell -ExecutionPolicy Bypass -File iniciar.ps1`). Na primeira vez ele confere o Java 21+, gera um certificado local em `certs\` (fora do Git), compila o programa (`target\cristalmaster-0.0.1-SNAPSHOT.jar`) e sobe a API em HTTPS.
+2. O terminal mostra o endereço para o celular, no formato `https://IP-DO-COMPUTADOR:8443/`. O celular precisa estar **na mesma rede Wi-Fi**. Se não abrir, libere a porta 8443 no firewall (o comando aparece no terminal; rode-o como Administrador).
+3. No celular, o navegador avisa que o certificado não é confiável (é autoassinado): toque em **Avançado** e continue. Depois permita o uso da câmera ao tocar em **Ler QR**.
+4. Para instalar como app: menu do navegador > **Adicionar à tela inicial**.
+
+Observações:
+
+- **Chrome no Android** lê o QR sem nada extra (`BarcodeDetector`). **iPhone/Safari e Firefox** não têm esse recurso: baixe a biblioteca [jsQR](https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js) e salve-a como `src/main/resources/static/js/jsQR.js` (não vem no projeto porque o simulador/ambiente de entrega pode estar sem internet). Se o arquivo existir, o botão **Ler QR** aparece automaticamente; se não, o operador digita o código do lote.
+- Se o IP do computador mudar, apague a pasta `certs\` e rode `iniciar.bat` de novo.
+- O certificado autoassinado serve para teste e apresentação. Em produção use um certificado real (ou um servidor com HTTPS na frente da API).
+- Um instalador `.exe` ou um `.apk` não fazem parte do projeto: o sistema roda como programa Java (`.jar`) e o celular o usa como PWA pelo navegador.
 
 **Demonstração da regra FIFO (sem banco e sem API):**
 

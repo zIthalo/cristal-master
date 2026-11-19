@@ -973,3 +973,72 @@ Sair da fundação técnica (Sprint 1) para um sistema que funciona de ponta a p
 - [ ] Validação em execução real (pendente da equipe)
 
 ---
+
+# Registro pós-auditoria (Fase 2, equipe Cubaltec, 05/11/2026)
+
+Entradas adicionadas ao final, sem alterar o histórico anterior. Contexto: a auditoria deu nota 5/10 ("está funcionando, porém não está explicado como faz para rodar").
+
+## Prompt 44 (19/11/2026)
+
+**Prompt enviado:**
+
+> *(anexo: `SETUP_AUDIT.md`, mais o texto da auditoria colado: nota 5/10 e o roteiro da Fase 2 com os pontos 1 a 5 e as perguntas aos autores)* Projeto aplicado II. Você é um especialista em desenvolvimento de software. Haja como um engenheiro senior. [link do repositório] Este verifique este link e encontre o arquivo AI_LOG, nele você deve preencher cada prompt passado à você. Preciso que você conserte o projeto de acordo com o que se pede neste texto que colei e no arquivo que estou te enviando.
+
+**O que a IA fez:** leu a página principal e o `AI_LOG.md` do GitHub e constatou que a `main` pública só tinha documentação (README da stack Node/React, `schema_mvp.sql`, `simulator.js`), sem `pom.xml`, `src/` nem scripts. Sem o código, não conseguiu corrigir o projeto; entregou arquivos-modelo (README "Como executar", `.env.example`, `.gitignore`, trechos de `pom.xml` e `application.properties`) e avisou que nada foi validado por execução.
+
+## Prompt 45 (19/11/2026)
+
+**Prompt enviado:**
+
+> O github foi atualizado. Verifique o link e verifique todas as pastas e arquivos
+
+**O que a IA fez:** a página principal veio idêntica à anterior (10 commits, mesma listagem) e o GitHub bloqueia o acesso automatizado às subpastas e ao histórico. A IA informou o que conseguiu ver, levantou que o push poderia não ter chegado à `main` ou que a página estava em cache, e pediu o zip do projeto.
+
+## Prompt 46 (19/11/2026)
+
+**Prompt enviado:**
+
+> O zip do projeto contém muitos arquivos. Consegue verificar?
+
+**O que a IA fez:** o zip não tinha chegado (a pasta de uploads só tinha o `SETUP_AUDIT`). Sugeriu um zip enxuto, sem `target/`, `node_modules/`, `.git/`, `zpastaBackup/` e `backend/`, e o comando `Compress-Archive` para gerá-lo.
+
+## Prompt 47 (19/11/2026)
+
+**Prompt enviado:**
+
+> *(anexo: `cristal-master.zip`)* Segue o .zip do projeto.
+
+**Análise do projeto real (374 arquivos, 5 MB):**
+
+- Já estavam resolvidos: `spring-boot-starter-validation` no `pom.xml` (Ponto 2); `pom.xml`, `mvnw`, `mvnw.cmd` e `.mvn/` versionados; cópia duplicada `src/main/java/br/com/cristalmaster/br/com/` removida (commit `f300023`); `docs/carregar-demo.ps1` existente (Ponto 4). As diferenças entre a pasta de trabalho e o último commit eram só de fim de linha (CRLF/LF), sem mudança de conteúdo.
+- Ainda abertos: senha `senai` escrita no `application.properties` (Ponto 3); `.env.example` vazio; README sem JAVA_HOME, pasta, `.\`, explicação de perfil e de "banco criado sozinho" (Pontos 1 e 5); 96 arquivos de `zpastaBackup/` e 3 de `backend/` versionados; `wrapper/` solto na raiz; `java-upgrade/` e `.github/modernize/` (ferramenta de upgrade do Copilot) na pasta; PDF com nome corrompido (`#U2013`) na raiz.
+
+**Correções aplicadas:**
+
+- `application.properties`: senha e usuário por `${DB_SENHA:}` e `${DB_USUARIO:root}`, com `spring.config.import=optional:file:.env[.properties]`. O Spring Boot também aceita `SPRING_DATASOURCE_PASSWORD`. Sem nada definido, a senha é vazia (padrão do XAMPP). `application-xampp.properties`: comentário atualizado.
+- `.env.example` preenchido; `.gitignore` passa a ignorar `.env`, `zpastaBackup/`, `backend/`, `java-upgrade/` e `wrapper/`.
+- `README.md`: seção "Como executar" reescrita (pré-requisitos, passo a passo com `.\mvnw.cmd -v` e JAVA_HOME, senha, health, seed pelo `simulador.ps1` ou `carregar-demo.ps1`, explicação de "perfil" e de "banco criado sozinho", tabela de problemas comuns) e árvore do projeto atualizada.
+- Limpeza: `zpastaBackup/`, `backend/`, `wrapper/` e `java-upgrade/` fora do pacote entregue; os dois primeiros saem do Git com `git rm -r --cached`, mediante concordância dos autores.
+
+**Não executado no ambiente da IA:** sem acesso à internet (o Maven não baixa dependências), sem MySQL e sem PowerShell. O build e o guia precisam ser validados pela equipe em clone limpo, anotando o tempo (último item da auditoria).
+
+---
+
+## Prompt 48 (19/11/2026)
+
+**Prompt enviado:**
+
+> Agora, com base nisto, você consegue criar um executável? Este sistema deve ser utilizado em dispositivos móveis e deve ler qr codes.
+
+**Análise:** o projeto roda como programa Java e a tela é um PWA. A leitura de QR já existia, mas só no Chrome/Android (`BarcodeDetector`) e só em HTTPS ou `localhost`, ou seja, não funcionaria em um celular acessando `http://IP:8080`.
+
+**Ações realizadas:**
+
+- `application-https.properties`: perfil `https` (porta 8443, certificado PKCS12 em `certs/`).
+- `iniciar.ps1` e `iniciar.bat`: conferem Java 21+, descobrem o IP da rede, geram o certificado autoassinado (com `keytool`), compilam o `.jar` se ainda não existir, mostram o endereço para o celular e sobem a API.
+- `app.js`: leitura de QR com *fallback* para a biblioteca jsQR (iPhone/Safari, Firefox) quando o arquivo `js/jsQR.js` existir; sem ele, o botão fica oculto como antes.
+- `README.md`: seção "Uso no celular, com leitura de QR Code".
+
+**Verificação:** a sintaxe do `app.js` e o comando `keytool` foram testados no ambiente da IA. **Não executado:** build do `.jar`, `iniciar.ps1` (sem PowerShell), HTTPS com celular real, leitura de QR em iPhone e instalação como PWA com certificado autoassinado. Não foi criado `.exe` nem `.apk`.
+
+---

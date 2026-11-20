@@ -1,6 +1,8 @@
 # Inicia o Cristal Master para uso no celular (HTTPS, necessario para a camera ler QR Code).
 # Uso: duplo clique em iniciar.bat  ou  powershell -ExecutionPolicy Bypass -File iniciar.ps1
-# Antes: MySQL ligado e, se o root tiver senha, defina DB_SENHA (ou use o .env). Veja o README.
+# Por padrao usa o banco H2 embutido (nao precisa de MySQL). Para usar o MySQL: iniciar.bat -Banco mysql
+# (MySQL ligado e, se o root tiver senha, defina DB_SENHA ou use o .env; veja o README).
+param([ValidateSet('h2','mysql')][string]$Banco = 'h2')
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
@@ -33,11 +35,13 @@ if (-not (Test-Path $cert)) {
   if ($LASTEXITCODE -ne 0) { Write-Host 'Falha ao gerar o certificado.' -ForegroundColor Red; exit 1 }
 }
 
-# 4) Programa (.jar): compila so se ainda nao existir
+# 4) Programa (.jar): compila se nao existir ou se o pom.xml for mais novo que ele
 $jar = 'target\cristalmaster-0.0.1-SNAPSHOT.jar'
-if (-not (Test-Path $jar)) {
+$refazer = -not (Test-Path $jar)
+if (-not $refazer) { if ((Get-Item $jar).LastWriteTime -lt (Get-Item 'pom.xml').LastWriteTime) { $refazer = $true } }
+if ($refazer) {
   Write-Host 'Gerando o programa (primeira vez, pode levar alguns minutos)...'
-  & .\mvnw.cmd -q package -DskipTests
+  & .\mvnw.cmd -q package "-Dmaven.test.skip=true"
   if ($LASTEXITCODE -ne 0) { Write-Host 'O build falhou. Veja o README (secao Problemas comuns).' -ForegroundColor Red; exit 1 }
 }
 
@@ -49,4 +53,7 @@ Write-Host 'Se o celular nao abrir, libere a porta (PowerShell como Administrado
 Write-Host '  New-NetFirewallRule -DisplayName "Cristal Master" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow'
 Write-Host 'Para encerrar: Ctrl + C.'
 Write-Host ''
-& $javaExe -jar $jar --spring.profiles.active=https
+$perfis = 'https'
+if ($Banco -eq 'mysql') { $perfis = 'https,mysql' }
+Write-Host "Banco: $Banco"
+& $javaExe -jar $jar "--spring.profiles.active=$perfis"

@@ -1056,3 +1056,62 @@ Entradas adicionadas ao final, sem alterar o histórico anterior. Contexto: a au
 **Não executado:** a compilação em JDK 17 (o ambiente da IA só tem o JRE 21, sem `javac`). A equipe deve validar com um JDK 17 real.
 
 ---
+
+## Prompt 50 (20/11/2026)
+
+**Prompt enviado:**
+
+> O que é necessário para simular um tipo de uso real, tanto no computador quanto no celular? Quero este passo a passo detalhado no readme.
+
+**Análise:** lendo o código (`EstoqueService`, controllers, `app.js`, `simulador.ps1`, `carregar-demo.ps1`), a IA montou um roteiro baseado nas regras reais (vencido, saldo e FIFO, nessa ordem) e nos dados do `carregar-demo.ps1`. Encontrou também um conflito: com o perfil `https` a API deixa de responder em `http://localhost:8080`, que é o padrão dos dois scripts de carga.
+
+**Ações realizadas:**
+
+- `README.md`: nova seção "Simulando o uso real (computador + celular)" com requisitos, preparação, roteiro de 10 passos com o resultado esperado de cada um, carga contínua com o simulador, teste de queda da API, uso só no computador, como zerar o banco e problemas comuns no celular.
+- `docs/qrcodes-demo.html` e `docs/qrcodes/*.png`: QR Codes de `LOT201` a `LOT205` e de um código inexistente (`LOT999`), gerados com OpenCV e conferidos por decodificação de volta (cada imagem lê exatamente o código esperado).
+- `docs/carregar-demo.ps1` e `mock/simulador.ps1`: parâmetro `-Api` (já existia no simulador) e aceitação do certificado autoassinado quando a URL é `https://`.
+
+**Não executado:** o roteiro completo, os scripts alterados (sem PowerShell no ambiente da IA) e a leitura dos QR Codes pela câmera de um celular. Os resultados esperados vêm da leitura do código, não de uma execução; a equipe deve conferir cada passo e corrigir a tabela se algo divergir.
+
+---
+
+## Prompt 51 (20/11/2026)
+
+**Prompt enviado:**
+
+> Qual seria uma outra alternativa para o projeto rodar sem a necessidade de utilizar um mysql ligado? Este programa não poderia criar um mysqlite para rodar sem a necessidade de ligar um mysql local para facilitar o uso de demais pessoas?
+
+**Análise:** o código usa só JPA/Hibernate (sem SQL nativo, `@Query` ou `columnDefinition`), então é portável entre bancos. Entre os embutidos, a IA escolheu o **H2 em modo arquivo** em vez do SQLite: o H2 é um único `.jar` Java, o Hibernate já traz o dialeto e o `ddl-auto=update` funciona; o SQLite exigiria `sqlite-jdbc` e `hibernate-community-dialects` e tem limitações de `ALTER TABLE`.
+
+**Ações realizadas:**
+
+- `pom.xml`: dependência `com.h2database:h2` (escopo `runtime`, versão gerenciada pelo Spring Boot), mantendo o driver do MySQL.
+- `application.properties`: banco padrão passa a ser H2 em arquivo (`jdbc:h2:file:./dados/cristalmaster;MODE=MySQL`); a pasta `dados/` entra no `.gitignore`.
+- Novo `application-mysql.properties` (MySQL com `DB_SENHA`) e `application-xampp.properties` autossuficiente (root sem senha).
+- `iniciar.ps1`/`iniciar.bat`: parâmetro `-Banco mysql` (padrão `h2`) e recompilação do `.jar` quando o `pom.xml` é mais novo.
+- `README.md`: pré-requisitos, passo a passo, seção "Banco de dados", roteiro de simulação e "Zerar o banco" atualizados.
+
+**Não executado:** build e execução com o H2 (o Maven não baixa dependências no ambiente da IA). A equipe deve subir a API sem MySQL, rodar `carregar-demo.ps1` e conferir o `/health`. Ponto de atenção: o arquivo do H2 só abre em um programa por vez (a API e a IDE não podem usar a mesma pasta `dados/` ao mesmo tempo).
+
+---
+
+## Prompt 52 (20/11/2026)
+
+**Prompt enviado:**
+
+> Você consegue criar um ambiente de testes para poder testar se tudo funciona antes de nos entregar?
+
+**Análise:** o ambiente da IA tem só um Java 21 de execução (com o módulo do compilador), sem Maven, sem as bibliotecas do Spring, sem PowerShell e sem internet. Logo, o sistema real **não pode ser compilado nem executado ali**. A IA separou o que pôde verificar sozinha do que precisa ser rodado pela equipe.
+
+**Ações realizadas:**
+
+- Testes JUnit em `src/test`: `FifoServiceTest` (regra FIFO pura) e `RoteiroApiTest` (roteiro do README pela API com `MockMvc`, banco H2 em memória e datas relativas a hoje, com rollback por teste). `src/test/resources/application.properties` isola os testes do banco real.
+- `docs/teste-fumaca.ps1`: teste de fumaca pela API no ar, repetível, com saída OK/FALHOU e código de saída.
+- `iniciar.ps1`: o build passa a usar `-Dmaven.test.skip=true`, para que um erro nos testes nunca impeça o programa de subir.
+- `README.md`: seção "Testes (conferir antes de entregar)" com os três níveis de teste e um checklist.
+
+**O que a IA conseguiu verificar de fato:** (1) `FifoService` e `FifoTeste` compilados e executados, com as saídas `FIFO OK`, `FIFO VIOLADO` e `Erro: lote inválido`; (2) sintaxe de todos os `.java` (main e test) e ausência de recursos além do Java 17, com `javac -source 17`: os únicos erros restantes são de bibliotecas ausentes; (3) simulação em Python das regras do `EstoqueService` aplicada ao roteiro do README, com resultado igual à tabela; (4) `app.js` e `sw.js` sem erro de sintaxe (`node --check`), `pom.xml` e manifesto bem formados, arquivos `.properties` coerentes; (5) os 6 QR Codes decodificados de volta com o código correto.
+
+**Não verificado (precisa da equipe):** compilação com Maven, `mvnw test`, subida com H2, `iniciar.ps1`, `teste-fumaca.ps1` e demais scripts PowerShell (só conferidos por balanceamento de sintaxe), HTTPS, câmera e leitura de QR no celular. Possível ajuste: nomes de classes de teste do Spring Boot 4 (foram usadas só classes estáveis do `spring-test`, mas isso não foi compilado).
+
+---

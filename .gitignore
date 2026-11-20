@@ -43,3 +43,6 @@ wrapper/
 
 ### Certificado local ###
 certs/
+
+### Banco H2 local ###
+dados/

@@ -10,13 +10,31 @@
 #   powershell -ExecutionPolicy Bypass -File mock\simulador.ps1
 # Opções:
 #   -Intervalo 4            segundos entre cada ação (padrão 4)
-#   -Api http://localhost:8080
+#   -Api http://localhost:8080      (com o iniciar.bat/perfil https: -Api https://localhost:8443)
 # Para parar: Ctrl + C
 
 param(
     [string]$Api = 'http://localhost:8080',
     [int]$Intervalo = 4
 )
+
+# Aceita o certificado autoassinado do perfil https (https://localhost:8443). Em http nao faz nada.
+if ($Api -like 'https://*') {
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        $PSDefaultParameterValues['Invoke-WebRequest:SkipCertificateCheck'] = $true
+        $PSDefaultParameterValues['Invoke-RestMethod:SkipCertificateCheck'] = $true
+    } else {
+        Add-Type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public class CmTrustAll : ICertificatePolicy {
+    public bool CheckValidationResult(ServicePoint sp, X509Certificate c, WebRequest r, int p) { return true; }
+}
+"@
+        [System.Net.ServicePointManager]::CertificatePolicy = New-Object CmTrustAll
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+    }
+}
 
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $ErrorActionPreference = 'Stop'

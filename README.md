@@ -2,7 +2,7 @@
 
 Sistema de controle de estoque FIFO para o almoxarifado da Cristal Master, indústria que trabalha com resinas e aditivos. A visão final é um **PWA mobile**: o operador abre o app direto no celular, sem instalar nada de loja, e usa a câmera para ler os QR Codes dos lotes.
 
-> **Situação atual:** backend (API REST em Spring Boot + MySQL) com cadastro de lotes, **saída de material validada pelo FIFO** (com bloqueio e registro de tentativas) e validação de payload com códigos HTTP corretos. A **tela operacional** (PWA em HTML/CSS/JS) consome a API e **se atualiza sozinha a cada 3 s**, com aviso de carregamento e de falha de comunicação; um **simulador** (`mock/simulador.ps1`) gera entradas, saídas e tentativas bloqueadas pela API real e a tela reage ao vivo (Aula 08). A leitura de QR pela câmera está implementada, mas ainda precisa ser testada em um celular real. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
+> **Situação atual:** backend (API REST em Spring Boot + H2 embutido ou MySQL) com cadastro de lotes, **saída de material validada pelo FIFO** (com bloqueio e registro de tentativas) e validação de payload com códigos HTTP corretos. A **tela operacional** (PWA em HTML/CSS/JS) consome a API e **se atualiza sozinha a cada 3 s**, com aviso de carregamento e de falha de comunicação; um **simulador** (`mock/simulador.ps1`) gera entradas, saídas e tentativas bloqueadas pela API real e a tela reage ao vivo (Aula 08). A leitura de QR pela câmera está implementada, mas ainda precisa ser testada em um celular real. Veja [O que o programa faz hoje](#o-que-o-programa-faz-hoje) e [Limitações conhecidas](#limitações-conhecidas).
 
 ## Problema do almoxarifado
 
@@ -27,11 +27,11 @@ Resumo direto do que existe e funciona neste momento:
 | **Movimentação na hora** | A saída aprovada baixa o saldo e grava a movimentação no ato. | **Saldo diferente do real** (problema 2). |
 | **Validação do payload** | Dados fora do esquema (campo vazio, negativo, texto no lugar de número, JSON quebrado) são barrados com **422** antes de chegar à regra de negócio. | API robusta contra dado malformado. |
 | **Cadastro e consulta de lotes** (`/api/lotes`) | Cadastra lotes (código QR, produto, fileira, quantidade, entrada, validade) e lista em ordem FIFO. | Base de dados do estoque. |
-| **Cadastro de produtos** (`/produtos`) | Grava e lista produtos no MySQL. | Base de dados. |
+| **Cadastro de produtos** (`/produtos`) | Grava e lista produtos no banco. | Base de dados. |
 | **Tela operacional (PWA)** (`/`) | Tela de celular: o operador informa o lote e a quantidade; cartão **verde** (baixa autorizada), **vermelho** (violação de FIFO ou lote vencido) ou **amarelo** (atenção). Mostra o próximo lote a sair de cada produto. | Indicar o lote certo antes da retirada e bloquear o errado. |
 | **Movimentações ao vivo** (`GET /api/movimentacoes`) | A tela mostra as últimas saídas (verde) e tentativas bloqueadas (vermelho) com o motivo, e avisa quando chega lote novo ou bloqueio. | Rastrear tentativas erradas na hora. |
 | **Simulador** (`mock/simulador.ps1`) | Faz o papel do operador pela API real: cadastra lotes, faz saídas certas e tenta saídas fora do FIFO, vencidas e acima do saldo. | Testar o fluxo completo sem equipamento. |
-| **Health check real** (`GET /health`) | Testa a conexão com o MySQL: 200 se o banco responde, 503 com o motivo se não. | Saber se o problema é a API ou o banco. |
+| **Health check real** (`GET /health`) | Testa a conexão com o banco: 200 se o banco responde, 503 com o motivo se não. | Saber se o problema é a API ou o banco. |
 | **Demonstração em terminal** (`ControleDemo`, `FifoTeste`) | Executam a regra de comparação FIFO sem API e sem banco. | Mostrar a regra de forma simples. |
 
 Ainda **não** existem: usuários/perfis em uso e autenticação.
@@ -50,7 +50,7 @@ Ainda **não** existem: usuários/perfis em uso e autenticação.
  repositories/  conversam com o banco (sem escrever SQL) ← ProdutoRepository (Spring Data JPA)
           │
           ▼
- models/        entidades = tabelas do MySQL             ← Produto, Lote, Movimentacao, Perfil
+ models/        entidades = tabelas do banco             ← Produto, Lote, Movimentacao, Perfil
 
  services/      regras de negócio                        ← FifoService (ainda não chamado pelos controllers)
 ```
@@ -133,7 +133,7 @@ Em baixo da faixa de resultado, a tela lista o **próximo lote a sair de cada pr
 ## Integração ponta a ponta (Aula 08)
 
 ```
- mock/simulador.ps1 ──POST /api/lotes, /api/saidas──▶  API Spring Boot (8080)  ──▶ MySQL
+ mock/simulador.ps1 ──POST /api/lotes, /api/saidas──▶  API Spring Boot (8080)  ──▶ banco
                                                               ▲
  Tela (index.html + app.js) ──GET a cada 3 s─────────────────┘
    /api/fifo/proximos · /api/lotes · /api/movimentacoes
@@ -148,7 +148,9 @@ Roteiro completo da demonstração em [`docs/AULA08_INTEGRACAO.md`](docs/AULA08_
 
 ## Banco de dados
 
-O banco `cristalmaster` (MySQL) é **criado automaticamente** na primeira execução (parâmetro `createDatabaseIfNotExist=true` na URL de conexão), e as **tabelas** são criadas/ajustadas pelo Hibernate (`ddl-auto=update`). Não é preciso rodar `CREATE DATABASE` nem usar o MySQL Workbench; só é necessário que o servidor MySQL esteja ligado e que o usuário tenha permissão para criar bancos.
+Por padrão o sistema usa o **H2**, um banco embutido que grava tudo no arquivo `dados/cristalmaster.mv.db`, criado sozinho na primeira execução (não há nada para instalar). Opcionalmente usa o **MySQL** (perfil `mysql` ou `xampp`), cujo banco `cristalmaster` também é criado automaticamente (`createDatabaseIfNotExist=true`), desde que o servidor esteja ligado. Nos dois casos as **tabelas** são criadas/ajustadas pelo Hibernate (`ddl-auto=update`): não é preciso rodar `CREATE DATABASE` nem usar o Workbench.
+
+O H2 serve bem para uso individual, demonstração e testes. Para vários usuários ao mesmo tempo em produção, prefira o MySQL (o arquivo do H2 só pode ser aberto por um programa por vez).
 
 | Tabela | Entidade | Campos |
 |--------|----------|--------|
@@ -166,6 +168,7 @@ cristal-master-main/
 ├── pom.xml, mvnw, mvnw.cmd          # Maven e wrapper
 ├── iniciar.bat, iniciar.ps1         # inicia a API em HTTPS para uso no celular (câmera/QR)
 ├── .env.example                     # modelo das variáveis locais (DB_USUARIO, DB_SENHA)
+├── docs/qrcodes-demo.html           # 6 QR Codes de demonstração (imagens em docs/qrcodes/)
 ├── docs/carregar-demo.ps1           # carrega 5 lotes de demonstração
 ├── docs/AI_LOG.md                   # registro do uso de IA
 ├── docs/TESTES_API.md               # roteiro de testes de validação e códigos HTTP
@@ -183,7 +186,7 @@ cristal-master-main/
 │   │   ├── models/                         # entidades JPA (tabelas)
 │   │   ├── repositories/                   # acesso ao banco
 │   │   └── services/                       # FifoService, EstoqueService e teste manual
-│   ├── main/resources/application.properties   # conexão com o MySQL (senha vem de DB_SENHA / .env)
+│   ├── main/resources/application.properties   # banco padrão H2 (arquivo em dados/); perfis mysql e xampp
 │   ├── main/resources/application-xampp.properties   # perfil "xampp": root sem senha
 │   ├── main/resources/static/                   # tela operacional (PWA): index.html, css/, js/, sw.js, manifest, icons/
 │   └── test/java/.../CristalmasterApplicationTests.java
@@ -196,8 +199,8 @@ cristal-master-main/
 ### O que precisa estar instalado
 
 - **JDK 17 ou mais novo (17, 21, 25...).** Não é preciso instalar o Maven (o projeto traz o `mvnw.cmd`).
-- **MySQL ligado na porta 3306.** No XAMPP, abra o painel e clique em **Start** no módulo **MySQL** (o Apache não é necessário).
-- Não é preciso criar o banco nem rodar SQL: o banco e as tabelas são criados sozinhos (veja "Entendendo dois termos").
+- **Nenhum banco de dados para instalar.** Por padrão o sistema usa o **H2**, um banco embutido no programa que guarda tudo em um arquivo na pasta `dados\` (criada sozinha). Não é preciso criar banco nem rodar SQL.
+- **MySQL é opcional** (perfil `mysql` ou `xampp`, veja o passo 3). Só instale/ligue o MySQL se quiser usá-lo; no XAMPP, clique em **Start** no módulo **MySQL** (o Apache não é necessário).
 
 ### Passo a passo
 
@@ -211,8 +214,8 @@ cristal-master-main/
    $env:JAVA_HOME = "C:\Program Files\Java\jdk-17"   # ajuste para a pasta do seu JDK
    .\mvnw.cmd -v
    ```
-3. **Informe a senha do MySQL.** Ela não fica escrita em arquivo do projeto. Escolha uma opção:
-   - **XAMPP com `root` sem senha:** não precisa fazer nada.
+3. **(Só se for usar MySQL) Escolha o banco.** Com o H2 padrão, **pule este passo**. Para usar o MySQL (ligado na porta 3306), suba a API no passo 4 com o perfil `mysql` (ou `xampp`, para o root sem senha do XAMPP) e informe a senha, que não fica escrita em arquivo do projeto:
+   - **XAMPP com `root` sem senha:** use o perfil `xampp` e não precisa de mais nada.
    - **Variável de ambiente** (vale só nesta janela): `$env:DB_SENHA = "sua_senha"`
    - **Arquivo `.env`** (fica na sua máquina, não vai para o Git): `Copy-Item .env.example .env` e preencha `DB_SENHA`.
    - O Spring Boot também aceita `$env:SPRING_DATASOURCE_PASSWORD = "sua_senha"`.
@@ -220,6 +223,7 @@ cristal-master-main/
    ```powershell
    .\mvnw.cmd spring-boot:run
    ```
+   Com MySQL: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=mysql"` (ou `=xampp`).
    (No PowerShell o `.\` na frente é obrigatório.) Espere a linha `Started CristalmasterApplication` e **não feche a janela**: Ctrl + C desliga a API. Na primeira vez o Maven baixa dependências e pode levar alguns minutos.
 5. **Confira no navegador:**
    - `http://localhost:8080/health` deve mostrar `Sistema OK - banco de dados conectado`.
@@ -235,15 +239,15 @@ cristal-master-main/
 
 ### Entendendo dois termos
 
-- **"O banco será criado sozinho":** a URL de conexão tem `createDatabaseIfNotExist=true`, então o driver cria o banco `cristalmaster` na primeira conexão e o Hibernate cria as tabelas (`ddl-auto=update`).
-- **Perfil:** é um arquivo `application-<nome>.properties` ativado com `-Dspring-boot.run.profiles=<nome>`. O perfil `xampp` só força a senha vazia. Exemplo: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`. Com a senha já tratada no passo 3, ele raramente é necessário.
+- **"O banco será criado sozinho":** no H2 padrão, o arquivo `dados\cristalmaster.mv.db` é criado na primeira execução. No MySQL, a URL tem `createDatabaseIfNotExist=true`, então o driver cria o banco `cristalmaster` na primeira conexão. Nos dois casos o Hibernate cria as tabelas (`ddl-auto=update`).
+- **Perfil:** é um arquivo `application-<nome>.properties` ativado com `-Dspring-boot.run.profiles=<nome>`. Perfis do projeto: nenhum (H2 embutido, padrão), `mysql` (MySQL com a senha de `DB_SENHA`/`.env`) e `xampp` (MySQL do XAMPP, root sem senha). Exemplo: `.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=xampp"`.
 
 ### Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |
 |---|---|---|
 | `release version 17 not supported` | `JAVA_HOME` com Java antigo | Passo 2 |
-| `Unable to determine Dialect without JDBC metadata` | A API não conectou no MySQL (a causa real está mais acima no log, na linha do `HikariPool`) | Confirme que o MySQL está ligado e refaça o passo 3 |
+| `Unable to determine Dialect without JDBC metadata` | A API não conectou no banco (a causa real está mais acima no log, na linha do `HikariPool`). Só acontece com MySQL | Confirme que o MySQL está ligado e refaça o passo 3 |
 | `Access denied for user 'root'` | Senha errada | Refaça o passo 3 |
 | `8080 already in use` | Outra instância da API rodando | Encerre-a (Ctrl + C na outra janela) |
 | Tela vazia | Banco sem dados | Passo 6 |
@@ -253,7 +257,7 @@ cristal-master-main/
 
 A câmera do celular só lê QR Code em **HTTPS** (ou em `localhost`). Por isso existe o perfil `https` e um iniciador que faz tudo sozinho:
 
-1. Com o MySQL ligado, dê **duplo clique em `iniciar.bat`** (ou rode `powershell -ExecutionPolicy Bypass -File iniciar.ps1`). Na primeira vez ele confere o Java 17+, gera um certificado local em `certs\` (fora do Git), compila o programa (`target\cristalmaster-0.0.1-SNAPSHOT.jar`) e sobe a API em HTTPS.
+1. Dê **duplo clique em `iniciar.bat`** (usa o H2 embutido; para MySQL, rode `iniciar.bat -Banco mysql` com o MySQL ligado) (ou rode `powershell -ExecutionPolicy Bypass -File iniciar.ps1`). Na primeira vez ele confere o Java 17+, gera um certificado local em `certs\` (fora do Git), compila o programa (`target\cristalmaster-0.0.1-SNAPSHOT.jar`) e sobe a API em HTTPS.
 2. O terminal mostra o endereço para o celular, no formato `https://IP-DO-COMPUTADOR:8443/`. O celular precisa estar **na mesma rede Wi-Fi**. Se não abrir, libere a porta 8443 no firewall (o comando aparece no terminal; rode-o como Administrador).
 3. No celular, o navegador avisa que o certificado não é confiável (é autoassinado): toque em **Avançado** e continue. Depois permita o uso da câmera ao tocar em **Ler QR**.
 4. Para instalar como app: menu do navegador > **Adicionar à tela inicial**.
@@ -265,14 +269,123 @@ Observações:
 - O certificado autoassinado serve para teste e apresentação. Em produção use um certificado real (ou um servidor com HTTPS na frente da API).
 - Um instalador `.exe` ou um `.apk` não fazem parte do projeto: o sistema roda como programa Java (`.jar`) e o celular o usa como PWA pelo navegador.
 
+## Simulando o uso real (computador + celular)
+
+Este roteiro reproduz o dia a dia do almoxarifado: o **celular** faz o papel do operador (lê o QR Code do lote e retira o material) e o **computador** faz o papel do painel que acompanha as movimentações ao vivo.
+
+### O que é necessário
+
+| Item | Detalhe |
+|---|---|
+| Computador (Windows) | JDK 17+ e o projeto, como em "Como executar". **Não precisa de MySQL** (usa o H2 embutido) |
+| Celular | Android com **Chrome** (lê QR sem nada extra) ou iPhone/Safari (precisa do arquivo `js/jsQR.js`, veja acima) |
+| Rede | Computador e celular no **mesmo Wi-Fi**. Redes de visitantes ou da faculdade costumam isolar os aparelhos: se o celular não abrir a página, ligue o **roteador/hotspot do celular** e conecte o computador nele |
+| Firewall | Porta **8443** liberada no Windows (comando mostrado pelo `iniciar.bat`, rodado como Administrador) |
+| QR Codes | `docs/qrcodes-demo.html` (6 QR Codes prontos, com o resultado esperado de cada um). Abra no computador e aponte a câmera do celular para a tela, ou imprima (Ctrl + P) |
+| Banco limpo | O `carregar-demo.ps1` precisa que as fileiras F01 a F05 estejam livres (veja "Zerar o banco" no fim desta seção) |
+
+### Preparação (uma vez)
+
+1. **Banco:** nada a fazer com o H2 padrão. (Com MySQL: ligue-o e use `iniciar.bat -Banco mysql`, definindo `DB_SENHA` se o root tiver senha.)
+2. **Suba a API em HTTPS:** duplo clique em `iniciar.bat`. Anote o endereço `https://IP-DO-COMPUTADOR:8443/` que aparece no terminal. Deixe essa janela aberta.
+3. **Libere a porta 8443** (PowerShell como Administrador), se ainda não liberou:
+   ```powershell
+   New-NetFirewallRule -DisplayName "Cristal Master" -Direction Inbound -Protocol TCP -LocalPort 8443 -Action Allow
+   ```
+4. **Abra o painel no computador:** `https://localhost:8443/` (aceite o aviso de certificado: Avançado > continuar). Esta tela fica à vista durante todo o teste.
+5. **Carregue os 5 lotes de demonstração**, em outra janela do PowerShell, na pasta do projeto:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File docs\carregar-demo.ps1 -Api https://localhost:8443
+   ```
+   Deve aparecer `Criado: LOT201` até `LOT205`. Atualize o painel: a seção **Próximo a sair de cada produto** passa a mostrar **LOT201** (Resina Cristal, fileira F01), **LOT204** (Aditivo Azul, F04) e **LOT205** (Aditivo Vermelho, F05). O LOT203 não aparece porque já está vencido.
+6. **Abra os QR Codes:** dê duplo clique em `docs\qrcodes-demo.html` (abre no navegador do computador, em outra janela ou outro monitor).
+7. **No celular:** conectado ao mesmo Wi-Fi, abra `https://IP-DO-COMPUTADOR:8443/`. No aviso de certificado, toque em **Avançado** e continue. Toque em **Ler QR** e **permita a câmera**. (Opcional: menu do navegador > **Adicionar à tela inicial**.)
+
+### Roteiro de teste
+
+Siga na ordem, com o banco recém-carregado. Em cada passo, o resultado aparece na tela do celular **e**, em poucos segundos, em **Movimentações ao vivo** no computador.
+
+| # | No celular (QR / quantidade) | Resultado esperado |
+|---|---|---|
+| 1 | Ler **LOT201**, quantidade **200** | Saída autorizada (verde), saldo **800**, `FIFO OK` |
+| 2 | Ler **LOT202**, quantidade **100** | Bloqueio: `FIFO violado: o lote esperado é LOT201 (fileira F01)` |
+| 3 | Ler **LOT203**, quantidade **50** | Bloqueio: `Lote vencido em 2026-09-30` |
+| 4 | Ler **LOT201**, quantidade **5000** | Bloqueio: `Quantidade acima do saldo do lote (saldo atual: 800)` |
+| 5 | Ler **LOT999**, quantidade **10** | Erro: `Lote não encontrado: LOT999` |
+| 6 | Ler **LOT204**, quantidade **100** | Saída autorizada (é o próximo do Aditivo Azul, pois o LOT203 venceu) |
+| 7 | Ler **LOT205**, quantidade **300** | Saída autorizada, saldo **0**. No painel, o Aditivo Vermelho some de "Próximo a sair" |
+| 8 | Ler **LOT201**, quantidade **800** | Saída autorizada, saldo **0**. No painel, o próximo da Resina Cristal passa a ser **LOT202** |
+| 9 | Ler **LOT202**, quantidade **100** | Agora a saída é autorizada (o FIFO já liberou o LOT202) |
+| 10 | Digitar `LOT202` no campo (sem usar a câmera), quantidade **50** | Funciona igual: a digitação é o plano B se o QR não ler |
+
+Os bloqueios (passos 2 a 5) aparecem como **tentativa bloqueada** em Movimentações ao vivo: é o registro de auditoria da regra FIFO. Você também pode conferir os dados brutos no navegador: `/api/lotes`, `/api/fifo/proximos` e `/api/movimentacoes`.
+
+### Teste de carga contínua (opcional)
+
+Com o roteiro acima concluído, abra uma terceira janela do PowerShell e rode o simulador, que cadastra lotes e tenta saídas certas e erradas sozinho a cada 4 segundos, enquanto você continua usando o celular:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File mock\simulador.ps1 -Api https://localhost:8443
+```
+
+O simulador cria lotes com código `SIM...` e pode consumir saldo dos lotes de demonstração. Para parar, `Ctrl + C`.
+
+### Teste de queda da API
+
+1. Com o painel aberto no computador e a página aberta no celular, pare a API (`Ctrl + C` na janela do `iniciar.bat`).
+2. Em poucos segundos, deve aparecer a **faixa vermelha** de erro de conexão nas duas telas.
+3. Suba a API de novo com o `iniciar.bat`: as telas voltam sozinhas. Os dados continuam, porque estão gravados no banco (arquivo `dados\` no H2 ou MySQL).
+
+### Só no computador (sem celular)
+
+Rode normalmente (`.\mvnw.cmd spring-boot:run`) e abra `http://localhost:8080/`. Em `localhost` a câmera funciona sem HTTPS: com uma webcam, o botão **Ler QR** lê os QR Codes mostrados na tela de um celular ou impressos. Sem webcam, digite o código do lote. Os comandos de carga ficam sem o `-Api` (padrão `http://localhost:8080`).
+
+### Zerar o banco para repetir o teste
+
+Com a API parada, **apague a pasta `dados\`** (H2 padrão). Ao subir a API de novo, o banco e as tabelas são recriados vazios. No MySQL: apague o banco no phpMyAdmin do XAMPP (`http://localhost/phpmyadmin`, banco `cristalmaster`, aba **Operações > Remover o banco de dados**) ou rode `DROP DATABASE cristalmaster;`.
+
+### Problemas comuns no celular
+
+| Sintoma | Causa provável | O que fazer |
+|---|---|---|
+| A página não abre no celular | Rede isolando aparelhos, IP errado ou firewall | Confira se os dois estão no mesmo Wi-Fi e se o IP é o do terminal; libere a porta 8443; teste com o hotspot do celular |
+| Aviso "conexão não é particular" | Certificado autoassinado | Esperado: Avançado > continuar |
+| A câmera não abre | Página em `http://` (não HTTPS) ou permissão negada | Use `https://...:8443`; nas configurações do site, permita a câmera |
+| O botão **Ler QR** não aparece | Navegador sem `BarcodeDetector` (iPhone, Firefox) e sem `js/jsQR.js` | Coloque o `jsQR.js` (veja "Uso no celular") ou digite o código |
+| O QR lê, mas o código vem estranho | O QR tem outro conteúdo (por exemplo, um link) | O sistema usa o texto exato do QR: ele deve conter só o código, como `LOT201` |
+| `Falha ao conectar` ao rodar os scripts em HTTPS | Faltou o `-Api https://localhost:8443` | Repita o comando com `-Api` |
+| `A fileira F01 já está ocupada` | O banco já tem os lotes da demonstração | Zere o banco (seção acima) |
+
 **Demonstração da regra FIFO (sem banco e sem API):**
 
 - Menu interativo: execute a classe `ControleDemo` pela IDE (botão Run) ou, após `mvnw.cmd compile`, `java -cp target/classes br.com.cristalmaster.ControleDemo`.
 - Três cenários automáticos: `java -cp target/classes br.com.cristalmaster.services.FifoTeste`.
 
-O teste `CristalmasterApplicationTests` sobe o contexto completo e, por isso, exige o MySQL ligado.
+O teste `CristalmasterApplicationTests` sobe o contexto completo e usa o H2 embutido, então não exige MySQL.
 
 Se a porta 8080 estiver ocupada (`8080 already in use`), há outra instância rodando: encerre-a antes de subir novamente.
+
+## Testes (conferir antes de entregar)
+
+Há três níveis de teste, do mais rápido ao mais próximo do uso real:
+
+| Teste | Como rodar | O que confere |
+|---|---|---|
+| **Automático (JUnit)** | `.\mvnw.cmd test` | Sobe o sistema com um banco H2 **em memória** (não usa a pasta `dados\` nem MySQL) e reproduz o roteiro da seção "Simulando o uso real": saída correta, FIFO violado, lote vencido, saldo, lote inexistente, esgotar lote, registro de bloqueios, lote repetido, fileira ocupada e payload inválido (`src/test/java/.../RoteiroApiTest.java` e `FifoServiceTest.java`). Esperado: `BUILD SUCCESS` e `Failures: 0, Errors: 0` |
+| **Fumaça (API no ar)** | Com a API rodando: `powershell -ExecutionPolicy Bypass -File docs\teste-fumaca.ps1` (com HTTPS: `-Api https://localhost:8443`) | Os mesmos cenários pela API real, uma linha `OK`/`FALHOU` por verificação e o total no fim. Pode ser repetido sem zerar o banco (cria lotes com código único) |
+| **Manual (celular)** | Roteiro de 10 passos da seção "Simulando o uso real" | A câmera, o HTTPS, a leitura do QR Code e a tela no celular, que os testes automáticos não cobrem |
+
+### Checklist antes de entregar
+
+1. **Clone limpo:** clone o repositório em outra pasta (sem `target\`, `dados\` ou `.env`) e siga **só** o README. Anote o tempo (a auditoria mediu ~40 minutos antes das correções).
+2. `.\mvnw.cmd test` termina com `BUILD SUCCESS`.
+3. `.\mvnw.cmd spring-boot:run` sobe **sem MySQL ligado** e `http://localhost:8080/health` mostra `Sistema OK - banco de dados conectado`.
+4. `docs\teste-fumaca.ps1` termina com `TUDO CERTO`.
+5. Com `docs\carregar-demo.ps1`, o painel mostra LOT201, LOT204 e LOT205 em "Próximo a sair".
+6. `iniciar.bat` abre a página em HTTPS no computador e no celular, o botão **Ler QR** aparece e o QR do `docs\qrcodes-demo.html` preenche o código.
+7. Os 10 passos do roteiro dão o resultado esperado, no celular e no painel.
+8. **Opcional (MySQL):** repita os itens 3 e 4 com o perfil `mysql`/`xampp`.
+9. Nenhum arquivo secreto no Git: `git ls-files .env dados target` não deve listar nada.
 
 ## Status do projeto
 

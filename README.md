@@ -248,6 +248,7 @@ cristal-master-main/
 |---|---|---|
 | `release version 17 not supported` | `JAVA_HOME` com Java antigo | Passo 2 |
 | `Unable to determine Dialect without JDBC metadata` | A API não conectou no banco (a causa real está mais acima no log, na linha do `HikariPool`). Só acontece com MySQL | Confirme que o MySQL está ligado e refaça o passo 3 |
+| `Database may be already in use` / `The file is locked` (H2) | Outro programa está segurando o arquivo `dados\cristalmaster.mv.db`: outra janela com a API, a IDE (VS Code/Eclipse) ou o OneDrive sincronizando a pasta | O `iniciar.bat` avisa e oferece encerrar o outro programa; projetos dentro do OneDrive passam a guardar o banco em `%LOCALAPPDATA%\CristalMaster`. Manualmente: encerre o outro `java` ou defina `$env:DB_ARQUIVO = "C:/CristalMaster/cristalmaster"` antes de subir |
 | `Access denied for user 'root'` | Senha errada | Refaça o passo 3 |
 | `8080 already in use` | Outra instância da API rodando | Encerre-a (Ctrl + C na outra janela) |
 | Tela vazia | Banco sem dados | Passo 6 |
@@ -334,7 +335,7 @@ O simulador cria lotes com código `SIM...` e pode consumir saldo dos lotes de d
 
 1. Com o painel aberto no computador e a página aberta no celular, pare a API (`Ctrl + C` na janela do `iniciar.bat`).
 2. Em poucos segundos, deve aparecer a **faixa vermelha** de erro de conexão nas duas telas.
-3. Suba a API de novo com o `iniciar.bat`: as telas voltam sozinhas. Os dados continuam, porque estão gravados no banco (arquivo `dados\` no H2 ou MySQL).
+3. Suba a API de novo com o `iniciar.bat`: as telas voltam sozinhas. Os dados continuam, porque estão gravados no banco (arquivo `dados\` no H2, ou `%LOCALAPPDATA%\CristalMaster` se o projeto estiver no OneDrive; ou MySQL).
 
 ### Só no computador (sem celular)
 
@@ -342,7 +343,7 @@ Rode normalmente (`.\mvnw.cmd spring-boot:run`) e abra `http://localhost:8080/`.
 
 ### Zerar o banco para repetir o teste
 
-Com a API parada, **apague a pasta `dados\`** (H2 padrão). Ao subir a API de novo, o banco e as tabelas são recriados vazios. No MySQL: apague o banco no phpMyAdmin do XAMPP (`http://localhost/phpmyadmin`, banco `cristalmaster`, aba **Operações > Remover o banco de dados**) ou rode `DROP DATABASE cristalmaster;`.
+Com a API parada, **apague a pasta `dados\`** (H2 padrão; se o projeto está no OneDrive, apague `%LOCALAPPDATA%\CristalMaster`). Ao subir a API de novo, o banco e as tabelas são recriados vazios. No MySQL: apague o banco no phpMyAdmin do XAMPP (`http://localhost/phpmyadmin`, banco `cristalmaster`, aba **Operações > Remover o banco de dados**) ou rode `DROP DATABASE cristalmaster;`.
 
 ### Problemas comuns no celular
 

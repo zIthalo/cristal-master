@@ -1115,3 +1115,31 @@ Entradas adicionadas ao final, sem alterar o histórico anterior. Contexto: a au
 **Não verificado (precisa da equipe):** compilação com Maven, `mvnw test`, subida com H2, `iniciar.ps1`, `teste-fumaca.ps1` e demais scripts PowerShell (só conferidos por balanceamento de sintaxe), HTTPS, câmera e leitura de QR no celular. Possível ajuste: nomes de classes de teste do Spring Boot 4 (foram usadas só classes estáveis do `spring-test`, mas isso não foi compilado).
 
 ---
+
+## Prompt 53 (20/11/2026)
+
+**Prompt enviado:**
+
+> Tentei rodar esta parte no celular: [seção "Uso no celular" do README]. Mas no meu powershell aparece isto: `powershell -ExecutionPolicy Bypass -File iniciar.ps1` -> `Java 17 ou mais novo e necessario (encontrado: 0). Instale o JDK 17+ ou ajuste o JAVA_HOME:`
+
+**Diagnóstico:** erro do `iniciar.ps1` escrito pela IA, não do Java do usuário. O `java -version` escreve na saída de erro; com `$ErrorActionPreference = 'Stop'` e `2>&1`, o Windows PowerShell 5.1 lança exceção, o `catch` zerava a saída e a versão virava 0. Um `JAVA_HOME` apontando para um Java antigo ou inexistente também gerava o mesmo "0", com mensagem enganosa. Esse defeito não foi percebido antes porque o script nunca pôde ser executado no ambiente da IA (sem PowerShell).
+
+**Correção:** `iniciar.ps1` agora checa o Java com `-XshowSettings:properties -version` sob `ErrorActionPreference = Continue`, lê `java.specification.version` e `java.home`, tenta o `JAVA_HOME` e, se estiver antigo ou inválido, cai para o `java` do PATH e aponta o `JAVA_HOME` (só naquela janela) para ele, para o `mvnw` compilar com o Java certo. Também passou a escolher o IP da placa com gateway (evita adaptadores virtuais) e a achar o `keytool` na mesma pasta do Java escolhido.
+
+**Não executado:** o script corrigido (sem PowerShell no ambiente da IA); apenas balanceamento de sintaxe. A equipe deve testar.
+
+---
+
+## Prompt 54 (20/11/2026)
+
+**Prompt enviado:**
+
+> *(imagem: `ERR_CONNECTION_REFUSED` em `https://localhost:8443/` no Chrome e no Brave)* Tentei abrir no computador o link https://localhost:8443/ [...] Copiei tudo que apareceu no terminal do iniciar.bat: *(log completo da inicialização)*
+
+**Diagnóstico (a partir do log):** o `iniciar.ps1` corrigido já detectava o Java 25, gerava o programa e o Tomcat chegou a inicializar na 8443 com HTTPS. A API caiu ao abrir o H2: `Database may be already in use` / `MVStoreException: The file is locked: ...\dados\cristalmaster.mv.db`, seguido do erro final `Unable to determine Dialect without JDBC metadata` (consequência, não causa). Como a API encerrou, o navegador recebeu `ERR_CONNECTION_REFUSED`. Algo mantinha o arquivo travado: outro processo Java com a API (outra janela ou IDE) ou o OneDrive (o projeto está em `C:\Users\...\OneDrive\Documentos\...`).
+
+**Correção:** `application.properties` passa a aceitar `DB_ARQUIVO` (padrão `./dados/cristalmaster`); `iniciar.ps1` (a) com o projeto dentro do OneDrive guarda o banco em `%LOCALAPPDATA%\CristalMaster`, e (b) procura outro `java.exe` com `cristalmaster` na linha de comando e oferece encerrá-lo antes de subir. README: nova linha em "Problemas comuns" e notas sobre onde fica o banco.
+
+**Não executado:** as alterações (sem PowerShell no ambiente da IA). A causa exata do travamento (processo duplicado ou OneDrive) não pôde ser confirmada pelo log e precisa ser conferida na máquina da equipe.
+
+---
